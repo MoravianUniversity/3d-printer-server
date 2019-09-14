@@ -1,0 +1,7 @@
+#!/bin/bash
+
+cd /home/pi/3d-printer-server
+. bin/activate
+cd server
+python server.py
+

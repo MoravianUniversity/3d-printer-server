@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>3D Printing Dashboard</title>
+<style>
+    body { margin: 0; padding: 0; overflow: hidden; text-align: center; font-size: 2em; }
+    #information { position: absolute; bottom: 0; left: 0; right: 0; border-top: 2px solid black; font-size: 1.6em; }
+    .base { position: absolute; width: calc(50% - 2px); top: 0; bottom: 1.9em; }
+    #gutenberg { left: 0; border-right: 2px solid black; }
+    #xerox { right: 0; border-left: 2px solid black; }
+    h1 { font-size: 1.2em; }
+    h2 { font-size: 1.4em; }
+    h1.name, h2.status { margin: 0.1em; }
+    .base div, .base canvas { visibility: hidden; }
+    .base.printing div, .base.printing canvas, .base .extruders, .base .extruders div { visibility: initial; }
+    .base.off .extruders, .base.off .extruders div { visibility: hidden; }
+    .progress { position: relative; left: 2px; width: 100%; height: calc(1.2em + 4px); background: #303030; color: white; font-size: 1.25em; }
+    .progress div { overflow: visible; position: absolute; }
+    .progress .bar { background: #008000; height: 1.2em; border: 2px solid black; border-left: 0; margin: 0 -2px; }
+    .progress .completed { left: 0; top: 2px; text-align: left; padding-left: 5px; }
+    .progress .percent { left: 0; right: 0; top: 2px; text-align: center; }
+    .progress .remaining { right: 0; top: 2px; text-align: right; padding-right: 5px; }
+    .extruders { position: absolute; bottom: 0; height: 1.2em; width: 100%; border-top: 2px solid black; }
+    .extruder0, .extruder1 { width: 50%; position: absolute; }
+    .extruder0 { left: 0; }
+    .extruder1 { left: 50%; }
+    canvas.display { position: absolute; left: 0; width: 100%; height: 2px; bottom: 1.2em; }
+    #xerox canvas.display { right: 0; }
+</style>
+<script>
+window.onerror = function(message, url, lineNumber) {
+    document.getElementById('information').innerText = message + ' / ' + url + ' / ' + lineNumber;
+    return false;
+}
+</script>
+<script src="/js/es5-shim.min.js"></script>
+<script src="/js/es6-shim.min.js"></script>
+<script src="/js/json5.min.js"></script>
+<script src="/js/three.min.js"></script>
+<script src="/js/LoaderSupport.js"></script>
+<script src="/js/OBJLoader2.js"></script>
+<script>
+if (!window.WeakMap) {
+    // I know... bad... but better than nothing...
+    window.WeakMap = Map;
+}
+if (!String.prototype.padStart) {
+    String.prototype.padStart = function padStart(targetLength, padString) {
+        targetLength = targetLength >> 0; //truncate if number, or convert non-number to 0;
+        padString = String(typeof padString !== 'undefined' ? padString : ' ');
+        if (this.length >= targetLength) {
+            return String(this);
+        } else {
+            targetLength = targetLength - this.length;
+            if (targetLength > padString.length) {
+                padString += padString.repeat(targetLength / padString.length); //append to original to ensure we are longer than needed
+            }
+            return padString.slice(0, targetLength) + String(this);
+        }
+    };
+}
+
+function _update_printer_info(name, info) {
+    var base = document.getElementById(name);
+    var status_elem = base.getElementsByClassName('status')[0];
+
+    var status = info.status; // "idle", "printing", "error", "maintenance", "booting"
+    if (status === 'off') {
+        base.className = 'base off';
+        status_elem.innerText = 'Off';
+        _set_display(name, '');
+        return;
+    } else if (status === 'idle') {
+        base.className = 'base idle';
+        status_elem.innerText = 'Idle';
+        _set_display(name, '');
+    } else if (status === 'error') {
+        base.className = 'base error';
+        status_elem.innerText = 'Error';
+        _set_display(name, '');
+    } else if (status === 'maintenance') {
+        base.className = 'base maintenance';
+        status_elem.innerText = 'Undergoing Maintenance';
+        _set_display(name, '');
+    } else if (status === 'booting') {
+        base.className = 'base booting';
+        status_elem.innerText = 'Booting';
+        _set_display(name, '');
+    } else {
+        // printing
+    }
+
+    try {
+        var bed_temp = info.bed.temperature.current;
+        var extruder0 = info.heads[0].extruders[0];
+        var extruder1 = info.heads[0].extruders[1];
+        var extruder0_temp = extruder0.hotend.temperature.current;
+        var extruder1_temp = extruder1.hotend.temperature.current;
+        var material0_guid = extruder0.active_material.guid;
+        var material1_guid = extruder1.active_material.guid;
+
+        var extruder0_elem = base.getElementsByClassName('extruder0')[0];
+        var temp0_elem = extruder0_elem.getElementsByClassName('temperature')[0];
+        var mat0_elem = extruder0_elem.getElementsByClassName('material')[0];
+        temp0_elem.innerText = Math.round(extruder0_temp) + '°C';
+        update_material_name(name, mat0_elem, material0_guid);
+
+        var extruder1_elem = base.getElementsByClassName('extruder1')[0];
+        var temp1_elem = extruder1_elem.getElementsByClassName('temperature')[0];
+        var mat1_elem = extruder1_elem.getElementsByClassName('material')[0];
+        temp1_elem.innerText = Math.round(extruder1_temp) + '°C';
+        update_material_name(name, mat1_elem, material1_guid);
+
+        var progress_elem = base.getElementsByClassName('progress')[0];
+        var top = progress_elem.getBoundingClientRect().bottom;
+        var bottom = extruder0_elem.getBoundingClientRect().top;
+        var display_elem = base.getElementsByClassName('display')[0];
+        display_elem.style.height = (bottom - top) + 'px';
+        display_elem.resized();
+
+    } catch (ex) {
+        base.className = 'base off';
+        status_elem.innerText = 'Off';
+        _set_display(name, '');
+        return;
+    }
+}
+
+function update_printer_info(name) {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (this.readyState === 4) {
+            if (this.status === 200) {
+                //document.getElementById('information').innerText = this.responseText;
+                _update_printer_info(name, JSON5.parse(this.responseText));
+            } else if (this.status == 0 || this.status == 404) {
+                _update_printer_info(name, {info:"off"});
+            }
+            // ignore 500 or similar errors
+            setTimeout(function () { update_printer_info(name); }, 1000);
+        }
+    };
+    xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/printer", true);
+    xhr.send();
+}
+
+function _update_print_job_info(name, info) {
+    var base = document.getElementById(name);
+    var status_elem = base.getElementsByClassName('status')[0];
+
+    var state = info.state; // "none", "printing", "pausing", "paused", "resuming", "pre_print", "post_print", "wait_cleanup", "wait_user_action", "unknown"
+    if (state === 'none' || state === 'unknown') {
+        return; // do nothing
+    }
+
+    var job_name = info.name; // need to strip UM3E if its there and replace '_' with ' '
+    var progress = info.progress; // 0 to 1
+    var started = new Date(info.datetime_started + 'Z'); // example: 2019-06-07T21:56:02
+    var finished = new Date(info.datetime_finished + 'Z'); // can be the empty string
+    var time_elapsed = info.time_elapsed; // seconds
+    var time_total = info.time_total; // seconds
+    var uuid = info.uuid;
+    if (job_name.startsWith('Pre-sliced_file_')) { job_name = job_name.substring(16); }
+    if (job_name.startsWith('UM3E_')) { job_name = job_name.substring(5); }
+    job_name = job_name.replace(/_/g, ' ').trim();
+
+    base.className = 'base printing';
+    var show_progress = true;
+    if (state === 'printing') {
+        status_elem.innerText = 'Printing "'+job_name+'"';
+    } else if (state === 'pausing') {
+        status_elem.innerText = 'Pausing "'+job_name+'"...';
+    } else if (state === 'paused') {
+        status_elem.innerText = 'Paused "'+job_name+'"';
+    } else if (state === 'resuming') {
+        status_elem.innerText = 'Resuming "'+job_name+'"...';
+    } else if (state === 'pre_print') {
+        status_elem.innerText = 'Preparing to print "'+job_name+'"...';
+        show_progress = false;
+    } else if (state === 'post_print') {
+        status_elem.innerText = 'Finishing print of "'+job_name+'"...';
+    } else if (state === 'wait_cleanup') {
+        status_elem.innerText = 'Waiting for "'+job_name+'" to be removed';
+    } else if (state === 'wait_user_action') {
+        status_elem.innerText = 'Waiting for a user...';
+        show_progress = false;
+    }
+
+    var progress_elem = base.getElementsByClassName('progress')[0];
+    var bar_elem = progress_elem.getElementsByClassName('bar')[0];
+    var completed_elem = progress_elem.getElementsByClassName('completed')[0];
+    var remaining_elem = progress_elem.getElementsByClassName('remaining')[0];
+    var percent_elem = progress_elem.getElementsByClassName('percent')[0];
+
+    completed_elem.innerText = format_time(started);
+    if (show_progress) {
+        var end = new Date(Date.now() + (time_total - time_elapsed)*1000);
+        if (progress === 1) { end = finished; }
+        remaining_elem.innerText = format_time(end);
+        bar_elem.style.width = (progress*100)+'%';
+        percent_elem.innerText = Math.round(progress*100)+'%';
+    } else {
+        remaining_elem.innerText = '';
+        bar_elem.style.width = '0%';
+        percent_elem.innerText = '';
+    }
+
+    _set_display(name, uuid);
+}
+function format_time(dt) {
+    // Not supported on Screenly:
+    //var config = { month: 'short', day: 'numeric', hour12: true, hour: 'numeric', minute: '2-digit' };
+    //return dt.toLocaleString('en-US', config);
+
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var hour = dt.getHours(), ampm = 'am';
+    if (hour >= 12) { hour -= 12; ampm = 'pm'; }
+    if (hour == 0) { hour = 12; }
+    var min = (dt.getMinutes()+'').padStart(2, '0');
+    return months[dt.getMonth()] + ' '  + dt.getDay() + ' ' + hour + ':' + min + ampm;
+}
+function update_print_job_info(name) {
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (this.readyState === 4) {
+            var timeout = 1000;
+            if (this.status === 200) {
+                _update_print_job_info(name, JSON5.parse(this.responseText));
+            } else if (this.status === 404) {
+                // nothing is printing
+                timeout = 5000;
+            }
+            setTimeout(function () { update_print_job_info(name); }, timeout);
+        }
+    };
+    xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/print_job", true);
+    xhr.send();
+}
+
+var material_names = {};
+function update_material_name(name, elem, guid) {
+    if (guid in material_names) {
+        elem.innerText = material_names[guid];
+        return;
+    }
+    var xhr = new XMLHttpRequest();
+    xhr.onreadystatechange = function() {
+        if (this.readyState === 4 && this.status === 200) {
+            var parser = new DOMParser();
+            var xml = parser.parseFromString(JSON5.parse(this.responseText), "text/xml");
+            var mat_name = xml.getElementsByTagName('metadata')[0].getElementsByTagName('material')[0].textContent;
+            material_names[guid] = mat_name;
+            elem.innerText = material_names[guid];
+        }
+    };
+    xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/materials/"+guid, true);
+    xhr.send();
+}
+
+window.onerror = function(message, url, lineNumber) {
+    document.getElementById('information').innerText = message + ' / ' + url + ' / ' + lineNumber;
+    return false;
+}
+
+window.addEventListener('load', function () {
+    var printers = ['xerox', 'gutenberg'];
+    for (var i = 0; i < printers.length; i++) {
+    var name = printers[i];
+        init_display(document.getElementById(name).getElementsByClassName('display')[0]);
+        update_printer_info(name);
+        update_print_job_info(name);
+    }
+});
+
+var RADS_PER_SEC = 0.25; // rotation speed in radians per second
+
+function init_display(canvas) {
+    // Set up the renderer
+    var renderer = new THREE.WebGLRenderer({canvas:canvas});
+    renderer.setClearColor(0xb0b0b0, 1); // light gray background
+    renderer.sortObjects = false; // for efficiency
+
+    // Setup the scene and lights
+    var scene = new THREE.Scene();
+    scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+    var light = new THREE.DirectionalLight(0xffffff, 0.7);
+    light.position.set(1, 1, 1);
+    scene.add(light);
+
+    // Setup the camera and render size
+    var camera;
+    canvas.resized = function resized() {
+        var w = canvas.clientWidth, h = canvas.clientHeight;
+        renderer.setSize(w, h);
+        //camera = new THREE.PerspectiveCamera(75, w / h, 1, 5);
+        //camera.position.z = 1;
+        camera = (w > h) ?
+            new THREE.OrthographicCamera(-w/h, w/h, 1, -1, -2, 2) :
+            new THREE.OrthographicCamera(-1, 1, h/w, -h/w, -2, 2);
+    };
+    canvas.resized();
+
+    // Setup the material for the object
+    // This uses Lambert material for efficiency since the primary goal is to display on a Raspberry Pi
+    var material = new THREE.MeshLambertMaterial({color:0xffffff});
+    material.name = "";
+    material.side = THREE.DoubleSide;
+
+    // Load the object
+    var obj = null;
+    var loader = new THREE.OBJLoader2();
+    loader.setDisregardNormals(true);
+    //loader.setUseIndices(true);
+    loader.setMaterials({"": material});
+    loader.setLogging(false, false);
+    function obj_loaded(event) {
+        obj = event.detail.loaderRootNode;
+        // Scale and position the object in the middle of the scene
+        var mesh = obj.children[0];
+        mesh.geometry.computeBoundingSphere();
+        var sphere = mesh.geometry.boundingSphere, scale = 1/sphere.radius;
+        mesh.scale.set(scale, scale, scale);
+        mesh.position.copy(sphere.center).negate().multiplyScalar(scale);
+        //console.log(obj);
+        scene.add(obj);
+    }
+    canvas.show_obj = function show_obj(uri) {
+        loader.load(uri, obj_loaded, null, null, null, true);
+    }
+    canvas.clear_display = function clear_display() {
+        if (obj !== null) {
+            obj.children[0].geometry.dispose();
+            obj = null;
+        }
+    }
+
+    // Rendering loop
+    var last_redraw = 0;
+    function animate(ms) {
+        if (obj !== null) {
+            if (ms && last_redraw) {
+                var elapsed_ms = ms - last_redraw;
+                obj.rotation.x += RADS_PER_SEC * elapsed_ms / 1000 * 2;
+                obj.rotation.y += RADS_PER_SEC * elapsed_ms / 1000;
+                obj.rotation.x %= 2*Math.PI;
+                obj.rotation.y %= 2*Math.PI;
+                last_redraw = ms;
+            } else { last_redraw = performance.now(); }
+        } else { last_redraw = 0; }
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+    }
+    animate();
+}
+
+function _set_display(name, uuid) {
+    var base = document.getElementById(name);
+    var canvas = base.getElementsByClassName('display')[0];
+    if (canvas.last_print_job_uuid !== uuid) {
+        if (uuid === '') { canvas.clear_display(); }
+        else { canvas.show_obj('/model/'+name+'.obj'); }
+        canvas.last_print_job_uuid = uuid;
+    }
+}
+
+</script>
+</head>
+<body>
+<div class='base' id='gutenberg'>
+    <h1 class='name'>Gutenberg</h1>
+    <h2 class='status'></h2>
+    <div class='progress'>
+        <div class='bar'></div>
+        <div class='completed'></div>
+        <div class='percent'></div>
+        <div class='remaining'></div>
+    </div>
+    <canvas class='display'></canvas>
+    <div class='extruders'> 
+        <div class='extruder0'>
+            Extruder 1:
+            <span class='temperature'></span>
+            <span class='material'></span>
+        </div>
+        <div class='extruder1'>
+            Extruder 2:
+            <span class='temperature'></span>
+            <span class='material'></span>
+        </div>
+    </div>
+</div>
+<div class='base' id='xerox'>
+    <h1 class='name'>Xerox</h1>
+    <h2 class='status'></h2>
+    <div class='progress'>
+        <div class='bar'></div>
+        <div class='completed'></div>
+        <div class='percent'></div>
+        <div class='remaining'></div>
+    </div>
+    <canvas class='display'></canvas>
+    <div class='extruders'> 
+        <div class='extruder0'>
+            Extruder 1:
+            <span class='temperature'></span>
+            <span class='material'></span>
+        </div>
+        <div class='extruder1'>
+            Extruder 2:
+            <span class='temperature'></span>
+            <span class='material'></span>
+        </div>
+    </div>
+</div>
+<div id="information">
+    Want something printed? Want to learn more? Go to <a href="https://3d.moravian.edu">3d.moravian.edu</a>
+</div>
+</body>
+</html>
