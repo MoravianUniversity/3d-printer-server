@@ -25,7 +25,7 @@ sudo cp 3d-printer-server.service /etc/systemd/system
 sudo systemctl enable 3d-printer-server
 sudo systemctl start 3d-printer-server
 
-cat >>~/.config/lxsession/LXDE-pi/autostart <EOF
+cat >>~/.config/lxsession/LXDE-pi/autostart <<EOF
 @xset s off
 @xset -dpms
 @xset s noblank
