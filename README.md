@@ -14,23 +14,37 @@ Installation
 On a fresh Rasbian installation, ssh into the machine and do the following:
 
 ```
-apt-get install virtualenv vlc
+# Setup system
+sudo apt-get install virtualenv vlc mesa-utils unclutter
+sudo raspi-config
+	Advanced Options > GL Driver > GL (Full KMS)
+	Advanced Options > Memory Split > 256
+	Finish and Reboot
+
+# Setup server
 virtualenv -p `which python3` 3d-printer-server
 cd 3d-printer-server
 . bin/activate
 pip install tornado
 git clone https://github.com/MoravianCollege/3d-printer-server.git server
 cd server
-sudo cp 3d-printer-server.service /etc/systemd/system
-sudo systemctl enable 3d-printer-server
-sudo systemctl start 3d-printer-server
+sudo cp 3d-print-server.service /etc/systemd/system
+sudo systemctl enable 3d-print-server
+sudo systemctl start 3d-print-server
 
-cat >>~/.config/lxsession/LXDE-pi/autostart <<EOF
+# Setup display
+cd
+mkdir -p .config/lxsession/LXDE-pi
+cp /etc/xdg/lxsession/LXDE-pi/autostart .config/lxsession/LXDE-pi/autostart
+cat >>.config/lxsession/LXDE-pi/autostart <<EOF
 @xset s off
 @xset -dpms
 @xset s noblank
 @chromium --kiosk --start-fullscreen --disable-restore-session --disable-session-crashed-bubble http://localhost:8888/dashboard
 EOF
+nano .config/lxsession/LXDE-pi/autostart
+	Comment out @xscreensaver -no-splash by placing a # in front
+	The other lines before @xset can likely be commented out as well
 ```
 
 
