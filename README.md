@@ -11,19 +11,12 @@ The video script assumes how to translate a name to a URL based on Moravian's se
 Installation
 ------------
 
-On a fresh Rasbian installation, ssh into the machine and do the following:
+On a fresh Rasbian installation, ssh into the machine and do the following to setup the server:
 
 ```
-# Setup system
-sudo apt-get install virtualenv vlc mesa-utils unclutter
-sudo raspi-config
-	Advanced Options > GL Driver > GL (Full KMS)
-	Advanced Options > Memory Split > 256
-	Finish and Reboot
-
-# Setup server
-virtualenv -p `which python3` 3d-printer-server
-cd 3d-printer-server
+sudo apt-get install virtualenv vlc
+virtualenv -p `which python3` ~/3d-printer-server
+cd ~/3d-printer-server
 . bin/activate
 pip install tornado
 git clone https://github.com/MoravianCollege/3d-printer-server.git server
@@ -31,18 +24,28 @@ cd server
 sudo cp 3d-print-server.service /etc/systemd/system
 sudo systemctl enable 3d-print-server
 sudo systemctl start 3d-print-server
+```
 
-# Setup display
-cd
-mkdir -p .config/lxsession/LXDE-pi
-cp /etc/xdg/lxsession/LXDE-pi/autostart .config/lxsession/LXDE-pi/autostart
-cat >>.config/lxsession/LXDE-pi/autostart <<EOF
+You may also choose to not install vlc in which case the video streaming components will not function.
+
+To setup the kiosk display:
+
+```
+sudo apt-get install mesa-utils unclutter
+sudo raspi-config
+        Advanced Options > GL Driver > GL (Full KMS)
+        Advanced Options > Memory Split > 256
+        Finish and Reboot
+mkdir -p ~/.config/lxsession/LXDE-pi
+cp /etc/xdg/lxsession/LXDE-pi/autostart ~/.config/lxsession/LXDE-pi/autostart
+cat >>~/.config/lxsession/LXDE-pi/autostart <<EOF
 @xset s off
 @xset -dpms
 @xset s noblank
-@chromium --kiosk --start-fullscreen --disable-restore-session --disable-session-crashed-bubble http://localhost:8888/dashboard
+@unclutter -root
+@chromium --kiosk --app=http://localhost:8888/dashboard
 EOF
-nano .config/lxsession/LXDE-pi/autostart
+nano ~/.config/lxsession/LXDE-pi/autostart
 	Comment out @xscreensaver -no-splash by placing a # in front
 	The other lines before @xset can likely be commented out as well
 ```
