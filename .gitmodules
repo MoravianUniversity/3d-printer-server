@@ -1,0 +1,3 @@
+[submodule "ultimaker-api"]
+	path = ultimaker-api
+	url = https://github.com/MoravianCollege/ultimaker-api
