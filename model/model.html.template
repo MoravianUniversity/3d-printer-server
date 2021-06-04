@@ -13,7 +13,7 @@ canvas { width: 100%; height: 100%; }
 <script src="/js/OBJLoader2.js"></script>
 <script>
 var RADS_PER_SEC = 0.25; // rotation speed in radians per second
-
+var obj = null;
 // Once the page is loaded we setup the ThreeJS environment and load the OBJ file
 var renderer, camera, canvas;
 window.addEventListener('load', () => {
@@ -42,36 +42,48 @@ window.addEventListener('load', () => {
     material.side = THREE.DoubleSide;
 
     // Load the object
-    var obj = null;
     function obj_loaded(event) {
         obj = event.detail.loaderRootNode;
         // Scale and position the object in the middle of the scene
         obj.children[0].geometry.computeBoundingSphere();
         var sphere = obj.children[0].geometry.boundingSphere;
         var scale = 1/sphere.radius;
-        obj.scale.set(scale, scale, scale);
-        obj.position.copy(sphere.center.negate().divideScalar(sphere.radius));
+        // Original lines modify obj's scale, position, and rotation properties directly:
+        // obj.scale.set(scale, scale, scale);
+        // obj.position.copy(sphere.center).negate().divideScalar(sphere.radius);
+        let position_matrix = new THREE.Matrix4().setPosition(sphere.center.clone().negate().divideScalar(sphere.radius));
+        obj.scaled_position_matrix = position_matrix.scale(new THREE.Vector3(scale, scale, scale));
+        obj.matrixAutoUpdate = false;
         scene.add(obj);
     }
+
     var loader = new THREE.OBJLoader2();
     loader.setDisregardNormals(true);
     loader.setUseIndices(true);
     loader.setMaterials({"": material});
     loader.setLogging(false, false);
-    loader.load('{{ url_escape(name) }}.obj', obj_loaded, null, null, null, true);
+    loader.load('{{ url_escape(name) }}.obj', obj_loaded, null, console.error, null, true);
 
     // Rendering loop
+    let done = false;
     var last_redraw = 0;
     function animate(ms) {
         if (obj !== null) {
             if (ms && last_redraw) {
                 var elapsed_ms = ms - last_redraw;
+
                 obj.rotation.x += RADS_PER_SEC * elapsed_ms / 1000;
                 obj.rotation.y += RADS_PER_SEC * elapsed_ms / 1000;
                 obj.rotation.x %= 2*Math.PI;
                 obj.rotation.y %= 2*Math.PI;
+                
+                // Need to do XY order
+                let rotation = new THREE.Matrix4().makeRotationX(obj.rotation.x).multiply(new THREE.Matrix4().makeRotationY(obj.rotation.y));
+                obj.matrix = rotation.multiply(obj.scaled_position_matrix);
                 last_redraw = ms;
             } else { last_redraw = performance.now(); }
+            
+            // console.log(obj.position);
         } else { last_redraw = 0; }
         renderer.render(scene, camera);
         requestAnimationFrame(animate);

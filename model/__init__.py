@@ -19,7 +19,7 @@ class ModelHandler(tornado.web.StaticFileHandler): # pylint: disable=abstract-me
     def get(self, name): # pylint: disable=arguments-differ
         path = os.path.join(cwd, name)
         # Check file age
-        #if x < 5 or False: # check time on file and if the printer is not currently printing
+        #if x < 5 or False: # check time on file and if the printer is not currently printing  os.path.getmtime(path)
         #    return super().get(name)
         
         #eventually get this from printer

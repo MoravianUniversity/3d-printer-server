@@ -20,7 +20,7 @@ def make_app():
         (r"/video/(.*)\.m3u8", video.VideoHandler, {"path":"video"}),
         (r"/(model|video)/(.*)\.html", TemplateHandler),
         (r"/(.*)", tornado.web.StaticFileHandler, {"path":".", "default_filename":"index.html"}),
-    ], debug=True)
+    ], debug=True, autoreload=True)
 
 if __name__ == "__main__":
     app = make_app()
