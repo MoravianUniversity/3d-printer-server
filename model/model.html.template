@@ -82,8 +82,6 @@ window.addEventListener('load', () => {
                 obj.matrix = rotation.multiply(obj.scaled_position_matrix);
                 last_redraw = ms;
             } else { last_redraw = performance.now(); }
-            
-            // console.log(obj.position);
         } else { last_redraw = 0; }
         renderer.render(scene, camera);
         requestAnimationFrame(animate);
