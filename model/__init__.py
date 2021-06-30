@@ -5,26 +5,33 @@
 import os.path
 import tornado.web
 from model.gcode_to_obj import gcode_to_obj
+from ultimaker_api.ultimaker import Ultimaker, PrinterStatus
+from datetime import datetime
 
 cwd = os.path.dirname(os.path.abspath(__file__))
 
 class ModelHandler(tornado.web.StaticFileHandler): # pylint: disable=abstract-method
-    """Supports PUT for OBJ file to save them"""
-    def put(self, name): # pylint: disable=arguments-differ
-        with open(os.path.join(cwd, name), 'wb') as file:
-            # could be made asynchronous with aiofiles, but shouldn't really block for long
-            file.write(self.request.body)
-        self.finish("file" + name + " is uploaded")
-
+    """Supports PUT for OBJ file to save them"""  # TODO update
     def get(self, name): # pylint: disable=arguments-differ
         path = os.path.join(cwd, name)
-        # Check file age
-        #if x < 5 or False: # check time on file and if the printer is not currently printing  os.path.getmtime(path)
-        #    return super().get(name)
+        # hostname = name.split('.')[0] + '.cslab.moravian.edu'
+        port = 5000 if name.split('.')[0] == 'xerox' else 5001
+        hostname = 'localhost:' + str(port)
+        ultimaker = Ultimaker(hostname)
+        printer = ultimaker.printer
+        printer_status = printer.status
+        # print_job = ultimaker.print_job
+        if printer_status == PrinterStatus.PRINTING and ultimaker.print_job.reprint_original_uuid and os.path.isfile(path):
+            return super().get(name)
+
+        if printer_status != PrinterStatus.PRINTING or os.path.isfile(path) and datetime.utcfromtimestamp(os.path.getmtime(path)) > ultimaker.print_job.datetime_started:
+            return super().get(name)
         
-        #eventually get this from printer
-        gcode = open(os.path.join(cwd, 'test_generic.gcode')).readlines()
-        obj = gcode_to_obj(gcode)
+        # Include printer.printer.heads in case a printer has more than one head
+        gcode = ultimaker.print_job.gcode.split('\n')
+        extruders = ultimaker.printer.head.extruders
+        obj = gcode_to_obj(gcode, [i for i in range(len(extruders)) if extruders[i].active_material.material.material != "PVA"])
         with open(path, "w") as f:
             f.write(obj)
+        
         return super().get(name)
