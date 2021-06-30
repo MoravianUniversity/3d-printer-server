@@ -39,7 +39,12 @@ window.onerror = function(message, url, lineNumber) {
 <script src="/js/three.min.js"></script>
 <script src="/js/LoaderSupport.js"></script>
 <script src="/js/OBJLoader2.js"></script>
+<script src="/js/ExtendMaterial.js"></script>
 <script>
+var height = {
+    gutenberg: 0,
+    xerox: 0
+};
 function _update_printer_info(name, info) {
     var base = document.getElementById(name);
     var status_elem = base.getElementsByClassName('status')[0];
@@ -71,6 +76,7 @@ function _update_printer_info(name, info) {
     }
 
     try {
+        height[name] = info.heads[0].position.z;  // Use this for coloring material
         var bed_temp = info.bed.temperature.current;
         var extruder0 = info.heads[0].extruders[0];
         var extruder1 = info.heads[0].extruders[1];
@@ -120,7 +126,9 @@ function update_printer_info(name) {
             setTimeout(function () { update_printer_info(name); }, 1000);
         }
     };
-    xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/printer", true);
+    // xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/printer", true);
+    let port = name === 'xerox' ? 5000 : 5001;
+    xhr.open("GET", "http://localhost:" + port + "/api/v1/printer", true);
     xhr.send();
 }
 
@@ -213,7 +221,10 @@ function update_print_job_info(name) {
             setTimeout(function () { update_print_job_info(name); }, timeout);
         }
     };
-    xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/print_job", true);
+    // xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/print_job", true);
+    let port = name === 'xerox' ? 5000 : 5001;
+    xhr.open("GET", "http://localhost:" + port + "/api/v1/print_job", true);
+    console.log('print job request sent');
     xhr.send();
 }
 
@@ -233,7 +244,10 @@ function update_material_name(name, elem, guid) {
             elem.innerText = material_names[guid];
         }
     };
-    xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/materials/"+guid, true);
+
+    // xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/materials/"+guid, true);
+    let port = name === 'xerox' ? 5000 : 5001;
+    xhr.open("GET", "http://localhost:" + port + "/api/v1/materials/"+guid, true);
     xhr.send();
 }
 
@@ -245,14 +259,15 @@ window.onerror = function(message, url, lineNumber) {
 window.addEventListener('load', function () {
     var printers = ['xerox', 'gutenberg'];
     for (var i = 0; i < printers.length; i++) {
-    var name = printers[i];
+        var name = printers[i];
         init_display(document.getElementById(name).getElementsByClassName('display')[0]);
         update_printer_info(name);
         update_print_job_info(name);
     }
 });
 
-var RADS_PER_SEC = 0.25; // rotation speed in radians per second
+const RADS_PER_MS = 0.00025; // rotation speed in radians per millisecond
+const PI_2 = 2*Math.PI;
 
 function init_display(canvas) {
     // Set up the renderer
@@ -282,9 +297,30 @@ function init_display(canvas) {
 
     // Setup the material for the object
     // This uses Lambert material for efficiency since the primary goal is to display on a Raspberry Pi
-    var material = new THREE.MeshLambertMaterial({color:0xffffff});
+    // var material = new THREE.MeshLambertMaterial({color:0xffffff});
+
+    /*
+    TODO:
+    Make unprinted layers translucent
+    Make current layer unique color (works but need to refind layer height)
+    uniforms not updating...
+    What if two PLA's in Python?
+    */
+    var material = THREE.extendMaterial(THREE.MeshLambertMaterial, {
+        header: '#define USE_COLOR_ALPHA\nuniform vec4 printedLayerColor, unprintedLayerColor, currentLayerColor; uniform float height;',
+
+        vertexEnd: 'vColor = position.z < height - 0.4 ? printedLayerColor : (position.z > height ? unprintedLayerColor : currentLayerColor);',
+
+        uniforms: {
+            printedLayerColor: new THREE.Vector4(0, 0, 1, 1),
+            unprintedLayerColor: new THREE.Vector4(1, 0.6, 0, 1),
+            currentLayerColor: new THREE.Vector4(1, 0, 0, 1),
+            height: new THREE.Uniform(0.0)
+        }
+    });
     material.name = "";
     material.side = THREE.DoubleSide;
+    console.log(material);
 
     // Load the object
     var obj = null;
@@ -295,6 +331,7 @@ function init_display(canvas) {
     loader.setLogging(false, false);
     function obj_loaded(event) {
         obj = event.detail.loaderRootNode;
+        console.log(obj);
         // Scale and position the object in the middle of the scene
         var mesh = obj.children[0];
         mesh.geometry.computeBoundingSphere();
@@ -304,7 +341,9 @@ function init_display(canvas) {
         //console.log(obj);
         scene.add(obj);
     }
+    canvas.material = material;
     canvas.show_obj = function show_obj(uri) {
+        console.log(uri);
         loader.load(uri, obj_loaded, null, null, null, true);
     }
     canvas.clear_display = function clear_display() {
@@ -320,10 +359,10 @@ function init_display(canvas) {
         if (obj !== null) {
             if (ms && last_redraw) {
                 var elapsed_ms = ms - last_redraw;
-                obj.rotation.x += RADS_PER_SEC * elapsed_ms / 1000 * 2;
-                obj.rotation.y += RADS_PER_SEC * elapsed_ms / 1000;
-                obj.rotation.x %= 2*Math.PI;
-                obj.rotation.y %= 2*Math.PI;
+                obj.rotation.x += RADS_PER_MS * elapsed_ms * 2;
+                obj.rotation.y += RADS_PER_MS * elapsed_ms;
+                obj.rotation.x %= PI_2;
+                obj.rotation.y %= PI_2;
                 last_redraw = ms;
             } else { last_redraw = performance.now(); }
         } else { last_redraw = 0; }
@@ -341,6 +380,8 @@ function _set_display(name, uuid) {
         else { canvas.show_obj('/model/'+name+'.obj'); }
         canvas.last_print_job_uuid = uuid;
     }
+    canvas.material.uniforms.height.value = height[name];
+    canvas.material.uniformsNeedUpdate = true;
 }
 
 </script>
