@@ -126,9 +126,9 @@ function update_printer_info(name) {
             setTimeout(function () { update_printer_info(name); }, 1000);
         }
     };
-    // xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/printer", true);
-    let port = name === 'xerox' ? 5000 : 5001;
-    xhr.open("GET", "http://localhost:" + port + "/api/v1/printer", true);
+    xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/printer", true);
+    // let port = name === 'xerox' ? 5000 : 5001;
+    // xhr.open("GET", "http://localhost:" + port + "/api/v1/printer", true);
     xhr.send();
 }
 
@@ -221,10 +221,9 @@ function update_print_job_info(name) {
             setTimeout(function () { update_print_job_info(name); }, timeout);
         }
     };
-    // xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/print_job", true);
-    let port = name === 'xerox' ? 5000 : 5001;
-    xhr.open("GET", "http://localhost:" + port + "/api/v1/print_job", true);
-    console.log('print job request sent');
+    xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/print_job", true);
+    // let port = name === 'xerox' ? 5000 : 5001;
+    // xhr.open("GET", "http://localhost:" + port + "/api/v1/print_job", true);
     xhr.send();
 }
 
@@ -245,9 +244,9 @@ function update_material_name(name, elem, guid) {
         }
     };
 
-    // xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/materials/"+guid, true);
-    let port = name === 'xerox' ? 5000 : 5001;
-    xhr.open("GET", "http://localhost:" + port + "/api/v1/materials/"+guid, true);
+    xhr.open("GET", "http://"+name+".cslab.moravian.edu/api/v1/materials/"+guid, true);
+    // let port = name === 'xerox' ? 5000 : 5001;
+    // xhr.open("GET", "http://localhost:" + port + "/api/v1/materials/"+guid, true);
     xhr.send();
 }
 
@@ -300,24 +299,25 @@ function init_display(canvas) {
     // var material = new THREE.MeshLambertMaterial({color:0xffffff});
 
     /*
-    TODO:
-    Make unprinted layers translucent
+    TODOs:
+    Make unprinted layers translucent (not yet)
     Make current layer unique color (works but need to refind layer height)
-    uniforms not updating...
-    What if two PLA's in Python?
+    uniforms are updating but inaccurate when head is switching materials (+0.2 mm) consistently
+    What if two PLA's in Python? (not yet)
     */
     var material = THREE.extendMaterial(THREE.MeshLambertMaterial, {
-        header: '#define USE_COLOR_ALPHA\nuniform vec4 printedLayerColor, unprintedLayerColor, currentLayerColor; uniform float height;',
+        header: '#define USE_COLOR_ALPHA\nuniform vec4 printedLayerColor, unprintedLayerColor, currentLayerColor; uniform float z_height;',
 
-        vertexEnd: 'vColor = position.z < height - 0.4 ? printedLayerColor : (position.z > height ? unprintedLayerColor : currentLayerColor);',
+        vertexEnd: 'vColor = position.z < z_height - 0.4 ? printedLayerColor : (position.z > z_height ? unprintedLayerColor : currentLayerColor);',
 
         uniforms: {
             printedLayerColor: new THREE.Vector4(0, 0, 1, 1),
             unprintedLayerColor: new THREE.Vector4(1, 0.6, 0, 1),
             currentLayerColor: new THREE.Vector4(1, 0, 0, 1),
-            height: new THREE.Uniform(0.0)
-        }
+            z_height: new THREE.Uniform(0.0)
+        },
     });
+    
     material.name = "";
     material.side = THREE.DoubleSide;
     console.log(material);
@@ -331,7 +331,6 @@ function init_display(canvas) {
     loader.setLogging(false, false);
     function obj_loaded(event) {
         obj = event.detail.loaderRootNode;
-        console.log(obj);
         // Scale and position the object in the middle of the scene
         var mesh = obj.children[0];
         mesh.geometry.computeBoundingSphere();
@@ -380,7 +379,7 @@ function _set_display(name, uuid) {
         else { canvas.show_obj('/model/'+name+'.obj'); }
         canvas.last_print_job_uuid = uuid;
     }
-    canvas.material.uniforms.height.value = height[name];
+    canvas.material.uniforms.z_height.value = height[name];
     canvas.material.uniformsNeedUpdate = true;
 }
 
