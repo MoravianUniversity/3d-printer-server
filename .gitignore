@@ -1,6 +1,8 @@
 __pycache__/
 .vscode/
 .DS_Store
-.gcode
+*.json
 *.gcode
 *.obj
+*.m3u8
+*.ts
