@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Starts and pauses video streaming on-demand"""
+"""
+Starts and pauses video streaming on-demand.
+
+This uses a ram-disk to serve files from to avoid excessive SD card writes on a
+Raspberry Pi.
+"""
 
 # Resource usage:
 # VLC: (ffmpeg likely to be similar since it uses the same core library)
@@ -14,50 +19,73 @@
 import time
 import asyncio
 import subprocess
-import threading
 import os
 import errno
 
 import tornado.web
 
-cwd = os.path.dirname(os.path.abspath(__file__))
+try:
+    import aiofiles
+    have_aiofiles = True
+except ImportError:
+    have_aiofiles = False
+
+
+PATH = '/dev/shm/vid-stream'  # works on Raspian and Fedora at least
+#PATH = os.path.dirname(os.path.abspath(__file__))  # for cur directory instead
+
 streams = {}
 
 async def start_streaming(name):
     """
-    Starts the streaming service for the given printer. This function is asynchronous and must be
-    used with await since it doesn't complete until the service has completely started.
+    Starts the streaming service for the given printer. This function is
+    asynchronous and must be used with await since it doesn't complete until
+    the service has completely started.
     """
     # pylint: disable=line-too-long
+
+    # Ensure path exists
+    if have_aiofiles:
+        await os.makedirs(PATH, exist_ok=True)
+    else:
+        os.makedirs(PATH, exist_ok=True)
+
     # TODO: dynamic URL
-    url = 'http://'+name+'.cslab.moravian.edu:8080/?action=stream'
+    if name == 'ada':
+        url = 'rtsp://Ada:FirstProgrammer@172.31.228.119:554/live/ch0'
+    else:
+        url = 'http://'+name+'.cslab.moravian.edu:8080/?action=stream'
     m3u8 = name + '.m3u8'
-    m3u8_full = os.path.join(cwd, m3u8)
+    m3u8_full = os.path.join(PATH, m3u8)
 
     # Remove evidence of previous streaming
     try:
-        # could be made asynchronous with aiofiles, but shouldn't really block for long
-        os.remove(m3u8_full)
+        if have_aiofiles:
+            await os.remove(m3u8_full)
+        else:
+            os.remove(m3u8_full)
     except OSError as ex:
         if ex.errno != errno.ENOENT:
             raise
 
-    # VLC: https://wiki.videolan.org/Documentation:Streaming_HowTo/Streaming_for_the_iPhone/
     print('Starting stream for '+name+'...')
-    proc = subprocess.Popen([
-        'vlc', '-I', 'dummy', '--play-and-exit', url, '--sout',
-        '#transcode{vcodec=h264,venc=x264{profile=high,ref=1,keyint=10,level=41},acodec=none}' +
-        ':std{access=livehttp{index='+m3u8+',delsegs=true,numsegs=3,seglen=2,index-url='+name+'-#######.ts},dst='+name+'-#######.ts,mux=ts{use-key-frames}}'
-    ], cwd=cwd)
-    # FFMPEG: https://www.ffmpeg.org/ffmpeg-formats.html#hls-2
+
+    # VLC: https://wiki.videolan.org/Documentation:Streaming_HowTo/Streaming_for_the_iPhone/
     # proc = subprocess.Popen([
-    #     'ffmpeg', '-i', url,
-    #     '-c:v', 'h264', '-profile:v', 'high', '-level', '4.1', '-an', '-flags', '+cgop', '-g', '30',
-    #     '-hls_time', '2', '-hls_list_size', '3', '-hls_flags', 'delete_segments', '-f', 'hls', m3u8
-    # ], cwd=cwd)
+    #     'vlc', '-I', 'dummy', '--play-and-exit', url, '--sout',
+    #     '#transcode{vcodec=h264,venc=x264{profile=high,ref=1,keyint=10,level=41},acodec=none}' +
+    #     ':std{access=livehttp{index='+m3u8+',delsegs=true,numsegs=3,seglen=2,index-url='+name+'-#######.ts},dst='+name+'-#######.ts,mux=ts{use-key-frames}}'
+    # ], cwd=PATH)
+
+    # FFMPEG: https://www.ffmpeg.org/ffmpeg-formats.html#hls-2
+    proc = subprocess.Popen([
+        'ffmpeg', '-hide_banner', '-nostats', '-loglevel', 'warning', '-i', url,
+        '-c:v', 'h264', '-profile:v', 'high', '-level', '4.1', '-an', '-flags', '+cgop', '-g', '30',
+        '-hls_time', '2', '-hls_list_size', '3', '-hls_flags', 'delete_segments', '-f', 'hls', m3u8
+    ], cwd=PATH)
 
     # Wait for the streaming to begin
-    while not os.path.isfile(m3u8_full):
+    while not os.path.isfile(m3u8_full):  # TODO: could use aiofiles here as well
         await asyncio.sleep(0.001)
 
     # Return the process so it can be terminated later
@@ -66,7 +94,7 @@ async def start_streaming(name):
 def terminate_streams(stale_secs=None):
     """Terminate all (stale) streams."""
     stale = None if stale_secs is None else time.time() - stale_secs
-    for name, info in streams.items():
+    for name, info in streams.copy().items():
         if stale is None or info[1] < stale:
             print("Stopping stream for "+name+"...")
             info[0].terminate()
@@ -74,7 +102,12 @@ def terminate_streams(stale_secs=None):
 
 stream_terminator = tornado.ioloop.PeriodicCallback(lambda: terminate_streams(120), 60*1000)
 
-class VideoHandler(tornado.web.StaticFileHandler): # pylint: disable=abstract-method
+class RamDiskStaticFileHandler(tornado.web.StaticFileHandler): # pylint: disable=abstract-method
+    def __init__(self, *args, **kwargs):
+        kwargs['path'] = PATH
+        super().__init__(*args, **kwargs)
+
+class VideoHandler(RamDiskStaticFileHandler): # pylint: disable=abstract-method
     """Handles *.m3u8 links which start the streaming service."""
     async def get(self, name, include_body=True): # pylint: disable=arguments-differ
         if not stream_terminator.is_running():

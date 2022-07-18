@@ -16,11 +16,12 @@ class TemplateHandler(tornado.web.RequestHandler): # pylint: disable=abstract-me
 
 def make_app():
     return tornado.web.Application([
-        (r"/model/(.*\.obj)", model.ModelHandler, {"path":"model"}),
-        (r"/video/(.*)\.m3u8", video.VideoHandler, {"path":"video"}),
+        (r"/model/(.*\.(?:gcode|json|obj))", model.ModelHandler, {"path":"model"}),
+        (r"/video/(.*)\.m3u8", video.VideoHandler),
+        (r"/video/(.*\.ts)", video.RamDiskStaticFileHandler),
         (r"/(model|video)/(.*)\.html", TemplateHandler),
         (r"/(.*)", tornado.web.StaticFileHandler, {"path":".", "default_filename":"index.html"}),
-    ], debug=True, autoreload=True)
+    ], debug=True)
 
 if __name__ == "__main__":
     app = make_app()
