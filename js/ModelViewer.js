@@ -48,7 +48,7 @@ class ModelViewer {
         this.renderer = new THREE.WebGLRenderer({antialias: true, canvas: canvas});
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setClearColor(0x000000, 1.0);
-        this.renderer.sortObjects = false; // TODO: for efficiency, but for transparency sorting may be required?
+        this.renderer.sortObjects = true; //false; // TODO: for efficiency, but for transparency sorting may be required?
         this.camera = new THREE.PerspectiveCamera(60, w / h, 0.1, 1000);
         this.scene = new THREE.Scene();
 
@@ -64,6 +64,7 @@ class ModelViewer {
      * need to be called manually.
      */
     resized() {
+        // TODO: changes things causing the middle of the object to not be in the middle anymore
         let [w, h] = [this.renderer.domElement.width, this.renderer.domElement.height];
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
@@ -137,7 +138,9 @@ class ModelViewer {
 
         // Create all of the geometries
         for (const core in this.layers) {
-            const color = COLORS.printed[core].hex, opacity = COLORS.printed[core].opacity;
+            const color_core = core % COLORS.printed.length;
+            const color = COLORS.printed[color_core].hex;
+            const opacity = COLORS.printed[color_core].opacity;
             for (const [z, layer_pts] of this.layers[core].entries()) {
                 const geometry = new LineSegmentsGeometry();
                 geometry.setPositions(layer_pts);
@@ -160,6 +163,10 @@ class ModelViewer {
         const bbox = new THREE.Box3().setFromObject(this.group);
         bbox.max.z = max_z; bbox.min.z = min_z;
         const center = bbox.min.clone().lerp(bbox.max, 0.5);
+
+        console.log(bbox);
+        console.log(center);
+
         this.group.position.copy(center).negate();
         this.camera.position.set(0, 0, bbox.max.distanceTo(center) * 1.5);
 
@@ -175,13 +182,14 @@ class ModelViewer {
         for (const core in this.layers) {
             for (const [z, layer] of this.layers[core].entries()) {
                 const lh_half = layer.material.linewidth/2;
+                const color_core = core % COLORS.printed.length;
                 let color;
                 if (z - lh_half <= new_printing_z && z + lh_half >= new_printing_z) {
-                    color = COLORS.printing[core];
+                    color = COLORS.printing[color_core];
                 } else if (z < new_printing_z) {
-                    color = COLORS.printed[core];
+                    color = COLORS.printed[color_core];
                 } else { // z > new_printing_z
-                    color = COLORS.future[core];
+                    color = COLORS.future[color_core];
                 }
                 if (layer.material.color != color.color || layer.material.opacity != color.opacity) {
                     layer.material.color = color.color;
