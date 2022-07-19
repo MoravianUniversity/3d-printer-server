@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="refresh" content="1296000">
+<title>3D Printing Dashboard</title>
+<style>
+    body { margin: 0; padding: 0; overflow: hidden; text-align: center; font-size: 2em; }
+    #information { position: absolute; bottom: 0; left: 0; right: 0; border-top: 2px solid black; font-size: 1.6em; }
+    .base { position: absolute; width: calc(50% - 2px); top: 0; bottom: 1.9em; }
+    #gutenberg { left: 0; border-right: 2px solid black; }
+    #xerox { right: 0; border-left: 2px solid black; }
+    h1 { font-size: 1.2em; }
+    h2 { font-size: 1.4em; }
+    h1.name, h2.status { margin: 0.1em; }
+    .base div, .base canvas { visibility: hidden; }
+    .base.printing div, .base.printing canvas, .base .extruders, .base .extruders div { visibility: initial; }
+    .base.off .extruders, .base.off .extruders div { visibility: hidden; }
+    .progress { position: relative; left: 2px; width: 100%; height: calc(1.2em + 4px); background: #303030; color: white; font-size: 1.25em; }
+    .progress div { overflow: visible; position: absolute; }
+    .progress .bar { background: #008000; height: 1.2em; border: 2px solid black; border-left: 0; margin: 0 -2px; }
+    .progress .completed { left: 0; top: 2px; text-align: left; padding-left: 5px; }
+    .progress .percent { left: 0; right: 0; top: 2px; text-align: center; }
+    .progress .remaining { right: 0; top: 2px; text-align: right; padding-right: 5px; }
+    .extruders { position: absolute; bottom: 0; height: 1.2em; width: 100%; border-top: 2px solid black; }
+    .extruder0, .extruder1 { width: 50%; position: absolute; }
+    .extruder0 { left: 0; }
+    .extruder1 { left: 50%; }
+    canvas.display { position: absolute; left: 0; width: 100%; height: 2px; bottom: 1.2em; }
+    #xerox canvas.display { right: 0; }
+</style>
+<script>
+window.onerror = function(message, url, lineNumber) {
+    if (message.startsWith('ResizeObserver')) { return false; }
+    document.getElementById('information').innerText = message + ' / ' + url + ' / ' + lineNumber;
+    return false;
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/json5/0.5.1/json5.min.js"></script>
+<script type='module'>
+import { ModelViewer } from '/js/ModelViewer.js'
+
+function _update_printer_info(name, info) {
+    var base = document.getElementById(name);
+    var status_elem = base.getElementsByClassName('status')[0];
+    var display_elem = base.getElementsByClassName('display')[0];
+
+    var status = info.status; // "idle", "printing", "error", "maintenance", "booting"
+    if (status === 'off') {
+        console.log("truly off");
+        base.className = 'base off';
+        status_elem.innerText = 'Off';
+        set_display(name, '');
+        return;
+    } else if (status === 'idle') {
+        base.className = 'base idle';
+        status_elem.innerText = 'Idle';
+        set_display(name, '');
+    } else if (status === 'error') {
+        base.className = 'base error';
+        status_elem.innerText = 'Error';
+        set_display(name, '');
+    } else if (status === 'maintenance') {
+        base.className = 'base maintenance';
+        status_elem.innerText = 'Undergoing Maintenance';
+        set_display(name, '');
+    } else if (status === 'booting') {
+        base.className = 'base booting';
+        status_elem.innerText = 'Booting';
+        set_display(name, '');
+    } else {
+        // printing
+    }
+
+    try {
+        display_elem.viewer.set_printing_z(info.heads[0].position.z);
+
+        var bed_temp = info.bed.temperature.current;
+        for (let i = 0; i < 2; i++) {
+            var extruder = info.heads[0].extruders[i];
+            var extruder_temp = extruder.hotend.temperature.current;
+            var material_guid = extruder.active_material.guid;
+            var extruder_elem = base.getElementsByClassName('extruder'+i)[0];
+            var temp_elem = extruder_elem.getElementsByClassName('temperature')[0];
+            var mat_elem = extruder_elem.getElementsByClassName('material')[0];
+            temp_elem.innerText = Math.round(extruder_temp) + '°C';
+            update_material_name(name, mat_elem, material_guid);
+        }
+
+        var progress_elem = base.getElementsByClassName('progress')[0];
+        var rect = progress_elem.getBoundingClientRect();
+        var top = rect.bottom;
+        var bottom = base.getElementsByClassName('extruder0')[0].getBoundingClientRect().top;
+        display_elem.height = (bottom - top) * window.devicePixelRatio;
+        display_elem.style.height = (bottom - top) * window.devicePixelRatio + 'px';
+        display_elem.width = (rect.right - rect.left) * window.devicePixelRatio;
+        display_elem.style.width = (rect.right - rect.left) * window.devicePixelRatio + 'px';
+        //display_elem.resized(); // should be automatic
+
+    } catch (ex) {
+        console.log(ex);
+        base.className = 'base off';
+        status_elem.innerText = 'Off';
+        set_display(name, '');
+        return;
+    }
+}
+
+function update_printer_info(name) {
+    fetch("http://"+name+".cslab.moravian.edu/api/v1/printer")
+		.then(response => {
+            if (response.status == 200) {
+                return response.json();
+            } else if (response.status == 0 || response.status == 404) {
+                _update_printer_info(name, {info:"off"});
+            }
+            return false;
+        })
+		.then(data => { if (data) { _update_printer_info(name, data); }})
+        .catch(error => _update_printer_info(name, {info:"off"}))
+        .finally(() => setTimeout(() => update_printer_info(name), 1000));
+}
+
+function _update_print_job_info(name, info) {
+    var base = document.getElementById(name);
+    var status_elem = base.getElementsByClassName('status')[0];
+
+    var state = info.state; // "none", "printing", "pausing", "paused", "resuming", "pre_print", "post_print", "wait_cleanup", "wait_user_action", "unknown"
+    if (state === 'none' || state === 'unknown') {
+        return; // do nothing
+    }
+
+    var job_name = info.name; // need to strip UM3E if its there and replace '_' with ' '
+    var progress = info.progress; // 0 to 1
+    var started = new Date(info.datetime_started + 'Z'); // example: 2019-06-07T21:56:02
+    var finished = new Date(info.datetime_finished + 'Z'); // can be the empty string
+    var time_elapsed = info.time_elapsed; // seconds
+    var time_total = info.time_total; // seconds
+    var uuid = info.uuid;
+    if (job_name.startsWith('Pre-sliced_file_')) { job_name = job_name.substring(16); }
+    if (job_name.startsWith('UM3E_')) { job_name = job_name.substring(5); }
+    job_name = job_name.replace(/_/g, ' ').trim();
+
+    base.className = 'base printing';
+    var show_progress = true;
+    if (state === 'printing') {
+        status_elem.innerText = 'Printing "'+job_name+'"';
+    } else if (state === 'pausing') {
+        status_elem.innerText = 'Pausing "'+job_name+'"...';
+    } else if (state === 'paused') {
+        status_elem.innerText = 'Paused "'+job_name+'"';
+    } else if (state === 'resuming') {
+        status_elem.innerText = 'Resuming "'+job_name+'"...';
+    } else if (state === 'pre_print') {
+        status_elem.innerText = 'Preparing to print "'+job_name+'"...';
+        show_progress = false;
+    } else if (state === 'post_print') {
+        status_elem.innerText = 'Finishing print of "'+job_name+'"...';
+    } else if (state === 'wait_cleanup') {
+        status_elem.innerText = 'Waiting for "'+job_name+'" to be removed';
+    } else if (state === 'wait_user_action') {
+        status_elem.innerText = 'Waiting for a user...';
+        show_progress = false;
+    }
+
+    var progress_elem = base.getElementsByClassName('progress')[0];
+    var bar_elem = progress_elem.getElementsByClassName('bar')[0];
+    var completed_elem = progress_elem.getElementsByClassName('completed')[0];
+    var remaining_elem = progress_elem.getElementsByClassName('remaining')[0];
+    var percent_elem = progress_elem.getElementsByClassName('percent')[0];
+
+    completed_elem.innerText = format_time(started);
+    if (show_progress) {
+        var end = new Date(Date.now() + (time_total - time_elapsed)*1000);
+        if (progress === 1) { end = finished; }
+        remaining_elem.innerText = format_time(end);
+        bar_elem.style.width = (progress*100)+'%';
+        percent_elem.innerText = Math.round(progress*100)+'%';
+    } else {
+        remaining_elem.innerText = '';
+        bar_elem.style.width = '0%';
+        percent_elem.innerText = '';
+    }
+
+    set_display(name, uuid);
+}
+function format_time(dt) {
+    // Not supported on Raspberry PI:
+    //var config = { month: 'short', day: 'numeric', hour12: true, hour: 'numeric', minute: '2-digit' };
+    //return dt.toLocaleString('en-US', config);
+
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var hour = dt.getHours(), ampm = 'am';
+    if (hour >= 12) { hour -= 12; ampm = 'pm'; }
+    if (hour == 0) { hour = 12; }
+    var min = (dt.getMinutes()+'').padStart(2, '0');
+    return months[dt.getMonth()] + ' '  + dt.getDate() + ' ' + hour + ':' + min + ampm;
+}
+function update_print_job_info(name) {
+    let timeout = 1000;
+    fetch("http://"+name+".cslab.moravian.edu/api/v1/print_job")
+		.then(response => response.status == 200 ? response.json() : false)
+		.then(data => { if (data) { _update_print_job_info(name, data); } else { timeout = 5000; }})
+        .catch(error => _update_printer_info(name, {info:"off"}))
+        .finally(() => setTimeout(() => update_print_job_info(name), timeout));
+}
+
+const material_names = {'':'(none)'};
+function update_material_name(name, elem, guid) {
+    if (guid in material_names) {
+        elem.innerText = material_names[guid];
+        return;
+    }
+    fetch("http://"+name+".cslab.moravian.edu/api/v1/materials/"+guid)
+		.then(response => response.status == 200 ? response.json() : false)
+		.then(data => {
+            if (data) {
+                var parser = new DOMParser();
+                var xml = parser.parseFromString(data, "text/xml");
+                var mat_name = xml.getElementsByTagName('metadata')[0].getElementsByTagName('material')[0].textContent;
+                material_names[guid] = mat_name;
+                elem.innerText = material_names[guid];
+            }
+        });
+}
+
+window.addEventListener('load', function () {
+    var printers = ['xerox', 'gutenberg'];
+    for (var i = 0; i < printers.length; i++) {
+        var name = printers[i];
+        var canvas = get_canvas(name);
+        canvas.viewer = new ModelViewer(canvas);
+        canvas.viewer.animate();
+        update_printer_info(name);
+        update_print_job_info(name);
+    }
+});
+
+function get_canvas(name) {
+    var base = document.getElementById(name);
+    return base.getElementsByClassName('display')[0];
+}
+
+function set_display(name, uuid) {
+    let canvas = get_canvas(name);
+    if (canvas.last_print_job_uuid !== uuid) {
+        if (uuid === '') { /*canvas.viewer.clear(); TODO */ }
+        else {
+			fetch('/model/'+name+'.json')
+				.then(response => response.json())
+				.then(data => canvas.viewer.set_data(data));
+        }
+        canvas.last_print_job_uuid = uuid;
+    }
+}
+
+</script>
+</head>
+<body>
+<div class='base' id='gutenberg'>
+    <h1 class='name'>Gutenberg</h1>
+    <h2 class='status'></h2>
+    <div class='progress'>
+        <div class='bar'></div>
+        <div class='completed'></div>
+        <div class='percent'></div>
+        <div class='remaining'></div>
+    </div>
+    <canvas class='display'></canvas>
+    <div class='extruders'> 
+        <div class='extruder0'>
+            Extruder 1:
+            <span class='temperature'></span>
+            <span class='material'></span>
+        </div>
+        <div class='extruder1'>
+            Extruder 2:
+            <span class='temperature'></span>
+            <span class='material'></span>
+        </div>
+    </div>
+</div>
+<div class='base' id='xerox'>
+    <h1 class='name'>Xerox</h1>
+    <h2 class='status'></h2>
+    <div class='progress'>
+        <div class='bar'></div>
+        <div class='completed'></div>
+        <div class='percent'></div>
+        <div class='remaining'></div>
+    </div>
+    <canvas class='display'></canvas>
+    <div class='extruders'> 
+        <div class='extruder0'>
+            Extruder 1:
+            <span class='temperature'></span>
+            <span class='material'></span>
+        </div>
+        <div class='extruder1'>
+            Extruder 2:
+            <span class='temperature'></span>
+            <span class='material'></span>
+        </div>
+    </div>
+</div>
+<div id="information">
+    Want something printed? Want to learn more? Go to <a href="https://3d.moravian.edu">3d.moravian.edu</a>
+</div>
+</body>
+</html>

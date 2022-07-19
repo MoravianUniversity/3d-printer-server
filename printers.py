@@ -3,6 +3,7 @@ from abc import abstractmethod
 from datetime import datetime
 from functools import cache, cached_property
 
+import requests
 from tornado.web import StaticFileHandler, HTTPError
 
 from ultimaker_api.ultimaker import PrinterStatus
@@ -132,3 +133,57 @@ class Ultimaker(Printer):
     @cached_property
     def print_job_started(self):
         return self.ultimaker.print_job.datetime_started
+
+
+class Ender(Printer):
+    # TODO: none of this is tested at all
+
+    TYPE = 'ender'
+
+    def __init__(self, config):
+        if 'hostname' not in config or 'apikey' not in config:
+            raise HTTPError(500)
+        super().__init__(config)
+
+
+    def fetch(self, url):
+        return requests.get(
+            url, headers={"X-Api-Key":self.config["apikey"]})
+
+    @cache
+    def get(self, cmd):
+        return self.fetch(f'http://{self.config["hostname"]}/api/{cmd}').json()
+
+    @property
+    def supports_video(self):
+        settings = self.get('settings')
+        return "webcam" in settings and "streamUrl" in settings["webcam"]
+
+    def get_video_url(self):
+        return self.get('settings')["webcam"]["streamUrl"]
+
+    @property
+    def supports_gcode(self): return True
+
+    def get_gcode(self):
+        job = self.get("job")["job"]
+        #filename = job["file"]["name"]
+        origin = job["file"]["origin"]
+        path = job["file"]["path"]
+        file = self.get(f"files/{origin}/{path}")
+        return self.fetch(file["refs"]["download"]).json()
+
+    def is_up_to_date(self, path):
+        return (
+            not self.printer_is_printing or  # not printing anything
+            os.path.isfile(path) and (
+                file_mod_datetime(path) > self.print_job_started))  # up-to-date
+
+    @property
+    def printer_is_printing(self):
+        flags = self.get("printer")["state"]["flags"]
+        return flags["printing"] or flags["paused"] or flags["pausing"]
+
+    @property
+    def print_job_started(self):
+        return TODO
