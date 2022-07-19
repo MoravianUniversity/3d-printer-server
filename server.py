@@ -5,15 +5,15 @@
 
 import os
 import asyncio
-import configparser
+from configparser import ConfigParser
 
-import tornado.ioloop
-import tornado.web
+from tornado.web import Application, StaticFileHandler, RequestHandler
 
-import model
-import video
+from model import ModelHandler
+from video import VideoHandler, VideoStaticFileHandler, terminate_video_streams
 
-class TemplateHandler(tornado.web.RequestHandler): # pylint: disable=abstract-method
+
+class TemplateHandler(RequestHandler): # pylint: disable=abstract-method
     """Handles .html files that are templates as .html.template"""
     def get(self, cat, name): # pylint: disable=arguments-differ
         self.render(cat+"/"+cat+".html.template", name=name)
@@ -21,24 +21,24 @@ class TemplateHandler(tornado.web.RequestHandler): # pylint: disable=abstract-me
 
 async def main():
     # Get the config information
-    config = configparser.ConfigParser()
-    config.read(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.ini'))
+    config = ConfigParser()
+    directory = os.path.dirname(os.path.abspath(__file__))
+    config.read(os.path.join(directory, 'config.ini'))
 
-    app = tornado.web.Application([
-        (r"/model/(.*\.(?:gcode|json|obj))", model.ModelHandler, {"path":"model"}),
-        (r"/video/(.*)\.m3u8", video.VideoHandler),
-        (r"/video/(.*\.ts)", video.VideoStaticFileHandler),
+    app = Application([
+        (r"/model/(.*\.(?:gcode|json|obj))", ModelHandler, {"path":"model"}),
+        (r"/video/(.*)\.m3u8", VideoHandler),
+        (r"/video/(.*\.ts)", VideoStaticFileHandler),
         (r"/(model|video)/(.*)\.html", TemplateHandler),
-        (r"/(.*)", tornado.web.StaticFileHandler, {"path":".", "default_filename":"index.html"}),
-    ], debug=True)
-    app.config = config
+        (r"/(.*)", StaticFileHandler, {"path":".", "default_filename":"index.html"}),
+    ], debug=True, config=config)
     
     # Start
-    app.listen(8889)
+    app.listen(8888)
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     finally:
-        video.terminate_streams()
+        terminate_video_streams()
