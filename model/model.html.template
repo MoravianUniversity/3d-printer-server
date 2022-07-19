@@ -1,51 +1,52 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<title>{{ escape(name) }} model</title>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-		<style>
-        body { margin: 0; overflow: hidden; }
-        </style>
-	</head>
-	<body>
-		<canvas id='viewer'></canvas>
-		<script type='module'>
-			import { ModelViewer } from '/js/ModelViewer.js'
+<head>
+	<title>{{ escape(name) }} model</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<link rel="icon" href="/favicon.ico">
+	<link rel="icon" href="/favicon.png" type="image/png">
+	<link rel="apple-touch-icon" href="/favicon.png">
+	<style>body { margin: 0; overflow: hidden; }</style>
+</head>
+<body>
+	<canvas id='viewer'></canvas>
+	<script type='module'>
+		import { ModelViewer } from '/js/ModelViewer.js'
 
-			// The following code should be done once for each viewer
-			// Make sure to save the viewer object somewhere
-			let elem = document.getElementById('viewer');
-			elem.width = window.innerWidth;
-			elem.height = window.innerHeight;
-			let viewer = new ModelViewer(elem);
+		// The following code should be done once for each viewer
+		// Make sure to save the viewer object somewhere
+		let elem = document.getElementById('viewer');
+		elem.width = window.innerWidth;
+		elem.height = window.innerHeight;
+		let viewer = new ModelViewer(elem);
 
-			// The following line should be used once for each viewer if you want to show the FPS
-			//elem.parentElement.appendChild(viewer.stats.dom);
+		// The following line should be used once for each viewer if you want to show the FPS
+		//elem.parentElement.appendChild(viewer.stats.dom);
 
-			// The following function should be called once, ever, for each viewer
-			viewer.animate();
+		// The following function should be called once, ever, for each viewer
+		viewer.animate();
 
-			// Download the data and update the viewer
-			// Needs to be run whenever there is new JSON data
-			fetch("./{{ url_escape(name) }}.json")
-				.then(response => response.json())
-				.then(data => viewer.set_data(data));
+		// Download the data and update the viewer
+		// Needs to be run whenever there is new JSON data
+		fetch("./{{ url_escape(name) }}.json")
+			.then(response => response.json())
+			.then(data => viewer.set_data(data));
 
-            // Make sure the canvas' size is updated when we change size
-            addEventListener('resize', () => {
-                elem.width = window.innerWidth; elem.style.width = window.innerWidth + 'px';
-                elem.height = window.innerHeight; elem.style.height = window.innerHeight + 'px';
-                // don't need to call: viewer.resized();
-            });
+		// Make sure the canvas' size is updated when we change size
+		addEventListener('resize', () => {
+			elem.width = window.innerWidth; elem.style.width = window.innerWidth + 'px';
+			elem.height = window.innerHeight; elem.style.height = window.innerHeight + 'px';
+			// don't need to call: viewer.resized();
+		});
 
-			// The following function needs to be called whenever the z value changes
-			// This example just raises the z continuously over time
-			// let z = 0;
-			// setInterval(() => {
-			// 	viewer.set_printing_z(z);
-			// 	z += 0.2;
-			// }, 200);
-		</script>
-    </body>
+		// The following function needs to be called whenever the z value changes
+		// This example just raises the z continuously over time
+		// let z = 0;
+		// setInterval(() => {
+		// 	viewer.set_printing_z(z);
+		// 	z += 0.2;
+		// }, 200);
+	</script>
+</body>
 </html>
