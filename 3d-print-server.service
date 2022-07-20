@@ -4,7 +4,7 @@ Requires=network.target
 
 [Service]
 Type=simple
-ExecStart=/home/pi/3d-printer-server/server/run_server
+ExecStart=/home/pi/3d-print-server/3d-printer-server/run_server
 
 [Install]
 WantedBy=multi-user.target
