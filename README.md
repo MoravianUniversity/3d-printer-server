@@ -8,24 +8,29 @@ This program requires Tornado and requests libtraris which you can install with 
 Installation
 ------------
 
-On a fresh Rasbian installation, ssh into the machine and do the following to fully setup the server (`ffmpeg` and `trimesh` are optional):
+On a fresh Raspbian installation, ssh into the machine and do the following to fully setup the server (`ffmpeg` and `trimesh` are optional):
 
-```
-sudo apt-get install virtualenv ffmpeg python3
+```shell
+sudo apt-get install python3 ffmpeg  # Raspbian
+#brew install python3 ffmpeg  # macOS
 python3 -m venv ~/3d-print-server
 cd ~/3d-print-server
 . bin/activate
 pip install tornado requests aiofiles trimesh
 git clone https://github.com/MoravianCollege/3d-printer-server.git
 cd 3d-printer-server
-sudo cp 3d-print-server.service /etc/systemd/system
-sudo systemctl enable 3d-print-server
-sudo systemctl start 3d-print-server
+git submodule init
+git submodule update
+sudo cp 3d-print-server.service /etc/systemd/system  # Raspbian
+sudo systemctl enable 3d-print-server  # Raspbian
+sudo systemctl start 3d-print-server  # Raspbian
+#sudo cp 3d-print-server.plist /Library/LaunchDaemons  # macOS
+#launchctl load /Library/LaunchDaemons/3d-print-server.plist  # macOS
 ```
 
-To setup the kiosk display:
+To setup the kiosk display on Raspbian:
 
-```
+```shell
 sudo apt-get install mesa-utils unclutter
 sudo raspi-config
         Advanced Options > GL Driver > GL (Full KMS)
@@ -41,13 +46,13 @@ cat >>~/.config/lxsession/LXDE-pi/autostart <<EOF
 @chromium --kiosk --app=http://localhost:8888/display
 EOF
 nano ~/.config/lxsession/LXDE-pi/autostart
-	Comment out @xscreensaver -no-splash by placing a # in front
-	The other lines before @xset can likely be commented out as well
+        Comment out @xscreensaver -no-splash by placing a # in front
+        The other lines before @xset can likely be commented out as well
 ```
-
 
 Setting Up Printers
 -------------------
+
 The config.ini file specifies the known printers and their settings along with a few global settings.
 
 Each printer gets its own section (e.g. `[xerox]`). Each printer should have at least a `type=` entry so that it is usable. The types can be any of the known printer types in printers.py and js/printers.js (see the `TYPE` fields in the classes there).
@@ -56,11 +61,10 @@ The default `Printer` type only knows how to stream video if there is a `video=`
 
 Additional subclasses of `Printer` are provided that support more features for other types of printers. The known types are:
 
-* `ultimaker` - only requires `hostname=` entry (no `video=` or `portal=`), supports all features (video, models, status, portal link, ...)
-* `octopi` - only requires `hostname=` entry (no `video=` or `portal=`), supports all features (video, models, status, portal link, ...)
+* `ultimaker` - only requires `hostname=` entry (no `video=` or `portal=`, although those will be used if provided), supports all features (video, models, status, portal link, ...)
+* `octopi` - only requires `hostname=` and `apikey=` entries (no `video=` or `portal=`, although those will be used if provided), supports all features (video, models, status, portal link, ...)
 
 Other printer types can be added as classes there.
-
 
 Streaming Video
 ---------------
@@ -70,7 +74,6 @@ Available as HLS stream at `/video/<printer name>.m3u8` and an example/embeddabl
 Many browsers cannot play HLS directly so you need to include the [hls.js](https://github.com/video-dev/hls.js/) library to provide support. See the example webpage for details. The example webpage is also designed to be placed in an iframe and embedded if you choose to go that route.
 
 The streaming server starts the first time the `m3u8` file is requested which may take a second or two. If that file has not been requested for 2-3 minutes the streaming server shuts down.
-
 
 Model Files
 -----------
@@ -89,7 +92,6 @@ Like with streaming video, there is an example/embeddable webpage (which uses th
 /model/<printer name>.html
 ```
 
-
 Dashboard and Display
 ---------------------
 TODO: Coming soon.
@@ -99,5 +101,6 @@ A simple dashboard for 2 printers is also provided as `/dashboard`. Doesn't incl
 Currently the dashboard has hard-coded printer names/addresses.
 
 Additional dashboards are planned:
+
 * General Dashboard - includes video stream
 * Admin Dashboard - includes general dashboard but with options to pause, resume, and abort the current print job; also has authentication
