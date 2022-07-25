@@ -17,9 +17,10 @@
         h1 {
             font-size: 1.5em;
         }
+        .inactive-link { pointer-events: none; cursor: default; }
 
         printer { display: inline-block; }
-        printer .camera {
+        printer .camera, printer .model {
             cursor: pointer;
             margin-left: 0.6em;
             height: 1em;
@@ -69,124 +70,88 @@
     </style>
 
     <script>
-        function show_camera(elem_type, url) {
+        function display(elem_type, url) {
+            close_display();
             let display = document.getElementById('display');
             let elem = document.createElement(elem_type);
             elem.src = url;
-            elem.id = 'camera';
+            elem.id = 'view';
             display.appendChild(elem);
             document.getElementById('container').style.display = 'block';
         }
-
-        function close_camera() {
+        function close_display() {
             document.getElementById('container').style.display = 'none';
-            let camera = document.getElementById('camera');
-            if (camera) { camera.remove(); }
+            document.getElementById('display').replaceChildren();
         }
+        function show_camera(printer) { display(printer.vid_type, printer.vid_url); }
+        function show_model(printer) { display('iframe', `/model/${printer.id}.html`); }
 
-        function fetch_printer_status_ender(printer) {
-            const status = printer.getElementsByClassName('status')[0];
-            const apikey = printer.getAttribute('apikey', '3D3D3D3D3D3D3D')
-            fetch(printer.api_url+'/printer', {'headers': {'X-Api-Key': apikey}})
-            .then(response => response.json())
-            .then(data => {
-                const state = data.state;
-                if (state.paused || state.pausing) {
-                    status.className = 'status paused';
-                } else if (state.printing || state.resuming || state.finishing || state.cancelling) {
-                    status.className = 'status printing';
-                } else if (state.closedOrError || state.error) {
-                    status.className = 'status error';
-                } else if (state.operational || state.ready) {
-                    status.className = 'status ready';
-                } else {
-                    status.className = 'status';
-                }
-            })
-            .catch(() => { status.className = 'status'; });
+        function create_button(clazz) {
+            elem = document.createElement('img');
+            elem.className = clazz;
+            elem.src = `${clazz}.png`;
+            elem.alt = `view ${clazz}`;
+            return elem;
         }
-
-        function fetch_printer_status_ultimaker(printer) {
-            const status = printer.getElementsByClassName('status')[0];
-            fetch(printer.api_url+'/printer')
-            .then(response => response.json())
-            .then(data => {
-                const state = data.status;
-                if (state === 'printing') {
-                    // need to request the print-job information
-                    fetch(printer.api_url+'/print_job')
-                    .then(response => response.json())
-                    .then(data => {
-                        const state = data.state;
-                        if (state === 'printing' || state === 'resuming' || state === 'pre_print' || state === 'post_print') {
-                            status.className = 'status printing';
-                        } else if (state === 'paused' || state === 'pausing') {
-                            status.className = 'status paused';
-                        } else if (state === 'wait_cleanup' || state === 'wait_user_action' || state === 'none') {
-                            status.className = 'status done';
-                        } else { // if (state === 'unknown') {
-                            status.className = 'status';
-                        }
-                    })
-                    .catch(() => { state.className = 'status'; });
-                } else if (state === 'error' || state === 'maintenance' || state === 'booting') {
-                    status.className = 'status error';
-                } else if (state === 'idle') {
-                    status.className = 'status ready';
-                } else {
-                    status.className = 'status';
-                }
-            })
-            .catch(() => { status.className = 'status'; });
-        }
-
-        function fetch_printer_status(printer) {
-            const type = printer.getAttribute('type');
-            if (type === 'ender') { return fetch_printer_status_ender(printer); }
-            else if (type === 'ultimaker') { return fetch_printer_status_ultimaker(printer); }
-        }
+        
 
         function create_printer(printer) {
             const name = printer.id;
-            const type = printer.getAttribute('type');
-            const domain = 'http://' + name.toLowerCase() + '.cslab.moravian.edu';
-            printer.domain = domain;
-            if (type === 'ultimaker') {
-                printer.api_url = domain + '/api/v1';
-                printer.link_url = domain + '/print_jobs';
-                printer.camera_url = domain + ':8080/?action=stream';
-                printer.camera_type = 'img'
-            } else if (type === 'ender') {
-                printer.api_url = domain + '/api';
-                printer.link_url = domain + '/';
-                const port = printer.hasAttribute('camera-port') ? printer.getAttribute('camera-port') : 12345;
-                printer.camera_url = domain + ':' + port + '/?action=stream';
-                printer.camera_type = 'img';
-            } else if (type === 'epsilon') {
-                printer.api_url = null;
-                printer.link_url = 'https://cloud.bcn3d.com/';
-                printer.camera_url = null;  // TODO
-                printer.camera_type = 'iframe';
-            }
 
             const status = printer.appendChild(document.createElement('span'));
             status.className = 'status';
-            fetch_printer_status(printer);
-
-            if (printer.camera_url !== null) {
-                const camera = printer.appendChild(document.createElement('img'));
-                camera.className = 'camera';
-                camera.src = 'camera.png';
-                camera.alt = 'view camera';
-                camera.addEventListener('click', () => {
-                    show_camera(printer.camera_type, printer.camera_url);
-                });
-            }
 
             const link = printer.appendChild(document.createElement('a'));
             link.className = 'name';
             link.textContent = name;
-            link.href = printer.link_url;
+
+            let camera = null;
+            let model = null;
+
+            function update_printer() {
+                fetch(`/info/${name}.json`)
+                .then(response => response.json())
+                .then(data => {
+                    status.className = `status ${data.status}`;
+
+                    if ('video' in data) {
+                        const inline = data.video.type === 'MJPEG'; 
+                        printer.vid_type = inline ? 'img' : 'iframe';
+                        printer.vid_url = inline ? data.video.url : `/video/${name}.html`;
+                        if (camera === null) {
+                            camera = create_button('camera');
+                            camera.addEventListener('click', () => show_camera(printer));
+                            status.after(camera);
+                        }
+                    } else if (camera !== null) {
+                        camera.remove();
+                        camera = null;
+                    }
+
+                    if (data.supports_model) {
+                        if (model === null) {
+                            model = create_button('model');
+                            model.addEventListener('click', () => show_model(printer));
+                            link.before(model);
+                        }
+                    } else if (model !== null) {
+                        model.remove();
+                        model = null;
+                    }
+
+                    if (data.link) {
+                        link.href = data.link;
+                        link.className = 'name';
+                    } else {
+                        link.href = '';
+                        link.className = 'inactive-link name';
+                    }
+                })
+                .catch(console.log(error));
+            }
+
+            printer.update = update_printer;
+            update_printer();
         }
 
         function on_load() {
@@ -198,12 +163,6 @@
         }
     </script>
 </head>
-
-<!--
-    TODO:
-    - Ender 3 camera ports (and maybe URL)
-    - Test everything
--->
 
 <body onload="on_load();">
     <div id="container"><div id="display"></div></div>
@@ -219,28 +178,28 @@
     <h1>Ender 3s on the Rack</h1>
     <table>
         <tr>
-            <td><printer type="ender" id="Bacchus" apikey="3DE4DE53DE4DE5"></td>
-            <td><printer type="ender" id="Hera" apikey="3DE4DE53DE4DE5"></td>
+            <td><printer id="bacchus"></td>
+            <td><printer id="hera"></td>
         </tr>
         <tr>
-            <td><printer type="ender" id="Talos" apikey="3DE4DE53DE4DE5"></td>
-            <td><printer type="ender" id="Athena" apikey="3DE4DE53DE4DE5"></td>
+            <td><printer id="talos"></td>
+            <td><printer id="athena"></td>
         </tr>
         <tr>
-            <td><printer type="ender" id="Vulcan" apikey="3DE4DE53DE4DE5"></td>
-            <td><printer type="ender" id="Kratos" apikey="3DE4DE53DE4DE5"></td>
+            <td><printer id="vulcan"></td>
+            <td><printer id="kratos"></td>
         </tr>
     </table>
 
     <h1>Ender 3s on the Table</h1>
-    <!--<p><printer type="ender" id="???" apikey="3DE4DE53DE4DE5"></p>
-    <p><printer type="ender" id="???" apikey="3DE4DE53DE4DE5"></printer> (printer with direct drive)</p>-->
+    <!--<p><printer id="???"></p>
+    <p><printer id="???"></printer> (printer with direct drive)</p>-->
 
     <h1>Ultimakers</h1>
-    <p><printer type="ultimaker" id="Gutenberg"></p>
-    <p><printer type="ultimaker" id="Xerox"></p>
+    <p><printer id="gutenberg"></p>
+    <p><printer id="xerox"></p>
 
     <h1>Epsilon W50s</h1>
-    <p><printer type="epsilon" id="Ada"></p>
+    <p><printer id="ada"></p>
 </body>
 </html>

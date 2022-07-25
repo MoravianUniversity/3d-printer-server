@@ -9,6 +9,7 @@ from configparser import ConfigParser
 
 from tornado.web import Application, StaticFileHandler, RequestHandler
 
+from info import InfoHandler
 from model import ModelHandler
 from video import VideoHandler, VideoStaticFileHandler, terminate_video_streams
 
@@ -26,6 +27,7 @@ async def main():
     config.read(os.path.join(directory, 'config.ini'))
 
     app = Application([
+        (r"/info/(.*)\.json", InfoHandler, {"path":"info"}),
         (r"/model/(.*\.(?:gcode|json|obj))", ModelHandler, {"path":"model"}),
         (r"/video/(.*)\.m3u8", VideoHandler),
         (r"/video/(.*\.ts)", VideoStaticFileHandler),
