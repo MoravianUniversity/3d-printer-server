@@ -21,6 +21,7 @@ import errno
 import asyncio
 import subprocess
 from time import time
+from urllib.error import HTTPError
 
 from tornado.ioloop import PeriodicCallback
 
@@ -64,11 +65,12 @@ async def start_streaming(printer, path):
         if ex.errno != errno.ENOENT: raise
 
     print('Starting stream for '+printer.name+'...')
-    print(printer.get_video_url())
+    # TODO: base conversions needed off of video type
+    # e.g. could be HLS already and RTSP may not need transcoding
     # FFMPEG: https://www.ffmpeg.org/ffmpeg-formats.html#hls-2
     proc = subprocess.Popen((
         'ffmpeg', '-hide_banner', '-nostats', '-loglevel', 'error',
-        '-i', printer.get_video_url(),
+        '-i', printer.video_url,
         '-c:v', 'h264', '-profile:v', 'high', '-level', '4.1',
         '-an', '-flags', '+cgop', '-g', '30', '-pix_fmt', 'yuv420p',
         '-hls_time', '2', '-hls_list_size', '3',
@@ -116,8 +118,10 @@ class VideoHandler(VideoStaticFileHandler):  # pylint: disable=abstract-method
         
         if name not in streams:
             # Streaming not currently running, start it
+            printer = self.get_printer(name)
+            if not printer.support_video: raise HTTPError(400)
             streams[name] = [None, time()]
-            proc = await start_streaming(self.get_printer(name), self.root)
+            proc = await start_streaming(printer, self.root)
             streams[name] = [proc, time()]
         else:
             while streams[name] is None:
