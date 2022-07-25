@@ -31,7 +31,7 @@
 </style>
 <script>
 window.onerror = function(message, url, lineNumber) {
-    if (message.startsWith('ResizeObserver')) { return false; }
+    if (message.startsWith('ResizeObserver') || lineNumber === 0 && url === "") { return false; }
     document.getElementById('information').innerText = message + ' / ' + url + ' / ' + lineNumber;
     return false;
 }

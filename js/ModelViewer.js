@@ -10,7 +10,7 @@ import { LineMaterial } from './LineMaterial.js';
 /** Fully clears a Three JS object freeing all of its memory. */
 function clearObject(obj) {
     while (obj.children.length > 0) {
-        clearThree(obj.children[0]);
+        clearObject(obj.children[0]);
         obj.remove(obj.children[0]);
     }
     if (obj.geometry) {
@@ -19,7 +19,7 @@ function clearObject(obj) {
     if (obj.material) {
         Object.keys(obj.material).forEach(prop => {
             if(obj.material[prop] && typeof obj.material[prop].dispose === 'function')
-                obj.material[prop].dispose();                                                      
+                obj.material[prop].dispose();
         });
         obj.material.dispose();
     }
