@@ -27,7 +27,7 @@ async def main():
     config.read(os.path.join(directory, 'config.ini'))
 
     app = Application([
-        (r"/info/(.*)\.json", InfoHandler, {"path":"info"}),
+        (r"/info/(.*)\.json", InfoHandler),
         (r"/model/(.*\.(?:gcode|json|obj))", ModelHandler, {"path":"model"}),
         (r"/video/(.*)\.m3u8", VideoHandler),
         (r"/video/(.*\.ts)", VideoStaticFileHandler),

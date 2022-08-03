@@ -4,7 +4,7 @@ from datetime import datetime
 from functools import cache, cached_property
 
 import requests
-from tornado.web import StaticFileHandler, HTTPError
+from tornado.web import HTTPError
 
 from ultimaker_api.ultimaker import PrinterStatus, PrintJobState
 
@@ -24,7 +24,7 @@ def get_printer_classes_by_type():
     return subclasses
 
 
-class PrinterHandler(StaticFileHandler):  # pylint: disable=abstract-method
+class PrinterHandlerMixin:
     def get_printer(self, name):
         # Get the configuration for the printer
         config = self.settings['config']

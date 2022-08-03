@@ -5,16 +5,16 @@
 import os.path
 from distutils.util import strtobool
 
-from tornado.web import HTTPError
+from tornado.web import StaticFileHandler, HTTPError
 from tornado.ioloop import IOLoop
 
-from printers import PrinterHandler
+from printers import PrinterHandlerMixin
 from model.gcode_parser import gcode_to_json, gcode_to_obj
 
 CWD = os.path.dirname(os.path.abspath(__file__))
 
 
-class ModelHandler(PrinterHandler):  # pylint: disable=abstract-method
+class ModelHandler(StaticFileHandler, PrinterHandlerMixin):  # pylint: disable=abstract-method
     """
     Gets gcode files from the printer along with converting gcode files to
     either json or obj files.

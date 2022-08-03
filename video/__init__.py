@@ -21,11 +21,11 @@ import errno
 import asyncio
 import subprocess
 from time import time
-from urllib.error import HTTPError
 
+from tornado.web import StaticFileHandler, HTTPError
 from tornado.ioloop import PeriodicCallback
 
-from printers import PrinterHandler
+from printers import PrinterHandlerMixin
 
 try:
     import aiofiles
@@ -95,7 +95,7 @@ def terminate_video_streams(stale_secs=None):
             del streams[name]
 
 
-class VideoStaticFileHandler(PrinterHandler):  # pylint: disable=abstract-method
+class VideoStaticFileHandler(StaticFileHandler, PrinterHandlerMixin):  # pylint: disable=abstract-method
     def initialize(self, **kwargs):
         super().initialize(self.get_config('tmp'), **kwargs)
 

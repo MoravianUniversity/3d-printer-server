@@ -4,14 +4,14 @@
 
 import json
 from datetime import timedelta
-from re import L
 
 from tornado.ioloop import IOLoop
+from tornado.web import RequestHandler
 
-from printers import PrinterHandler
+from printers import PrinterHandlerMixin
 
 
-class InfoHandler(PrinterHandler):  # pylint: disable=abstract-method
+class InfoHandler(RequestHandler, PrinterHandlerMixin):  # pylint: disable=abstract-method
     """Gets JSON describing the currently information about the printer."""
     async def get(self, name):  # pylint: disable=arguments-differ
         self.set_header('Content-Type', 'application/json')
@@ -27,7 +27,10 @@ class InfoHandler(PrinterHandler):  # pylint: disable=abstract-method
                 kwargs['message'] = 'Invalid HTTP method.'
             else:
                 kwargs['message'] = 'Unknown error.'
-        self.write(json.dumps(kwargs))
+        try:
+            self.write(json.dumps(kwargs))
+        except TypeError:
+            self.write(json.dumps({k:str(v) for k,v in kwargs.items()}))
 
 
     def generate_info(self, printer):
