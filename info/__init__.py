@@ -54,4 +54,4 @@ class InfoHandler(RequestHandler, PrinterHandlerMixin):  # pylint: disable=abstr
                 remaining = remaining.total_seconds()
             started = printer.job_started.strftime(r"%Y-%m-%dT%H:%M:%SZ")
             info["job"] = {"remaining": remaining, "started": started}
-        return True
+        return info

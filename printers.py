@@ -6,7 +6,7 @@ from functools import cache, cached_property
 import requests
 from tornado.web import HTTPError
 
-from ultimaker_api.ultimaker import PrinterStatus, PrintJobState
+from ultimaker_api.ultimaker import PrintJobPauseSources, PrinterStatus, PrintJobState
 
 
 @cache
@@ -224,7 +224,26 @@ class Ultimaker(Printer):
     def __status(self): return self.ultimaker.printer.status
 
     @cached_property
-    def __job(self): return self.ultimaker.print_job.dict
+    def __job(self):
+        # Both types of jobs (current and historical) have:
+        #   name, source, uuid, reprint_original_uuid, result
+        #   datetime_started, datetime_finished, datetime_cleaned, time_elapsed, time_total
+        # A current job also has:
+        #   progress     (filled in with 1.0 on a historical job)
+        #   pause_source (filled in with PrintJobPauseSources.UNKNOWN on a historical job)
+        #   state        (filled in with PrintJobState.NO_JOB on a historical job)
+        #   source_user, source_application  (not filled in for historical jobs)
+        #   (can also manually access gcode and container which are not available for historical jobs)
+        # A historical job also has:
+        #   time_estimated  (not filled in for current jobs)
+        try:
+            return self.ultimaker.print_job.dict
+        except (KeyError, ValueError):  # when there is no current job return most recent job
+            job = self.ultimaker.history.print_jobs[0].dict
+            job['progress'] = 1.0
+            job['pause_source'] = PrintJobPauseSources.UNKNOWN
+            job['state'] = PrintJobState.NO_JOB
+            return job
 
 
 class Octopi(Printer):
@@ -245,7 +264,7 @@ class Octopi(Printer):
         if status["paused"] or status["pausing"]:
             return 'paused'
         elif status["printing"] or status["resuming"] or \
-                status["finishing"] or status["canceling"]:
+                status["finishing"] or status["cancelling"]:
             return 'printing'
         elif status["closedOrError"] or status["error"]:
             return 'error'
