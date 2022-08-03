@@ -32,6 +32,7 @@ class ModelHandler(PrinterHandler):  # pylint: disable=abstract-method
         gcode_path = os.path.join(CWD, name) + '.gcode'
         updated = await loop.run_in_executor(
             None, self.update_gcode, printer, gcode_path)
+        if not os.path.isfile(gcode_path): raise HTTPError(404)
 
         if ext == 'gcode':
             self.absolute_path = gcode_path
