@@ -155,8 +155,8 @@
         }
 
         function on_load() {
-            document.getElementById('container').addEventListener('click', close_camera);
-            document.addEventListener('keyup', (e) => { if (e.keyCode === 27) { close_camera(); } });
+            document.getElementById('container').addEventListener('click', close_display);
+            document.addEventListener('keyup', (e) => { if (e.keyCode === 27) { close_display(); } });
             for (let printer of document.getElementsByTagName('printer')) {
                 create_printer(printer);
             }
