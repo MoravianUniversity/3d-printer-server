@@ -131,7 +131,7 @@ class Printer:
             print job
         """
         return (
-            self.status not in ('printing', 'paused') or  # not printing anything
+            # TODO: self.status not in ('printing', 'paused') or  # not printing anything
             os.path.isfile(path) and (
                 file_mod_datetime(path) > self.job_started))  # up-to-date
 
@@ -275,7 +275,10 @@ class Octopi(Printer):
 
     @property
     def status(self):
-        status = self.__status
+        try:
+            status = self.__status
+        except (KeyError, ValueError):
+            return 'unknown'  # unable to connect to printer
         if status["paused"] or status["pausing"]:
             return 'paused'
         elif status["printing"] or status["resuming"] or \
@@ -320,24 +323,29 @@ class Octopi(Printer):
     def link(self): return self.config.get('link', f"http://{self.hostname}/")
 
     @property
-    def supports_gcode(self): return True
+    def supports_gcode(self):
+        job_file = self.__job_file
+        return job_file is not None and "download" in job_file["refs"]
 
     @property
     def gcode(self):
-        return self.fetch(self.__job_file["refs"]["download"]).json()
+        job_file = self.__job_file
+        if job_file is None or "download" not in job_file["refs"]: return None
+        return self.fetch(job_file["refs"]["download"], json=False).text
 
     @property
     def supports_job(self): return True
 
     @property
     def job_remaining_time(self):
-        return self.__job["progress"]["printTimeLeft"]
+        job = self.__job
+        return 0 if job is None else job["progress"]["printTimeLeft"]
 
     @property
-    def job_started(self): return datetime.now()  # - timedelta(seconds = self.__job["progress"]["printTime"])
-    # maybe:
-    #   datetime.now() - timedelta(seconds = self.__job["progress"]["printTime"])   but doesn't include pauses...
-    #   datetime.fromtimestamp(self.__job_file["prints"]["last"]["date"])           may not include current print...
+    def job_started(self):
+        job = self.__job
+        if job is None: return datetime.now()
+        return datetime.now() - timedelta(seconds=job["progress"]["printTime"])
 
     @cached_property
     def __status(self): return self.get("printer")["state"]["flags"]
@@ -349,30 +357,57 @@ class Octopi(Printer):
     def __job(self):
         job = self.get("job")
         if job["state"] == "Operational":  # TODO
-            pass
-#{
-# 'job': {
-#   'estimatedPrintTime': None,
-#   'filament': {'length': None, 'volume': None},
-#   'file': {'date': None, 'name': None, 'origin': None, 'path': None, 'size': None},
-#   'lastPrintTime': None, 'user': None
-# },
-# 'progress': {'completion': None, 'filepos': None, 'printTime': None, 'printTimeLeft': None, 'printTimeOrigin': None},
-# 'state': 'Operational'
-#}
+            file = self.__find_most_recent_file(self.__files["files"])
+            if file is None: return None
+            #job["job"]["lastPrintTime"] = ...
+            job["job"]["file"]["name"] = file["name"]
+            job["job"]["file"]["origin"] = file["origin"]
+            job["job"]["file"]["path"] = file["path"]
+            job["job"]["file"]["size"] = file.get("size", None)
+            job["job"]["file"]["date"] = file.get("date", None)
+            job["progress"]["completion"] = 1.0
+            job["progress"]["filepos"] = file.get("size", None)
+            job["progress"]["printTimeLeft"] = 0
+            job["progress"]["printTimeLeftOrigin"] = 'linear'
+            if "gcodeAnalysis" in file:
+                est_print_time = file["gcodeAnalysis"]["estimatedPrintTime"]
+                job["job"]["estimatedPrintTime"] = est_print_time
+                job["progress"]["printTime"] = est_print_time
+                job["job"]["filament"] = file["gcodeAnalysis"]["filament"]
+            job["state"] == "Completed"
         return job
+
+    def __find_most_recent_file(self, files):
+        most_recent_file = None
+        most_recent_date = 0
+        for file in files:
+            if file["type"] == "folder":
+                file = self.__find_most_recent_file(file["children"])
+            if file is None or file["type"] != "machinecode" or "prints" not in file:
+                continue
+            if most_recent_date < file["prints"]["last"]["date"]:
+                most_recent_file = file
+                most_recent_date = file["prints"]["last"]["date"]
+        return most_recent_file
 
     @cached_property
     def __job_file(self):
-        file = self.__job["job"]["file"]  # abridged information
+        job = self.__job
+        if job is None: return None
+        file = job["job"]["file"]  # abridged information
         return self.get(f"files/{file['origin']}/{file['path']}") # full info
 
-    def fetch(self, url):
-        data = requests.get(
+    @cached_property
+    def __files(self): return self.get(f"files?recursive=true")
+
+    def fetch(self, url, json=True):
+        request = requests.get(
             url, headers={"X-Api-Key":self.apikey})
-        if "error" in data:
-            raise ValueError(data["error"])
-        return data
+        if json:
+            data = request.json()
+            if "error" in data: raise ValueError(data["error"])
+            return data
+        return request
 
     def get(self, cmd):
-        return self.fetch(f'http://{self.hostname}/api/{cmd}').json()
+        return self.fetch(f'http://{self.hostname}/api/{cmd}')
