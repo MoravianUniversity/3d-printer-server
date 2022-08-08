@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """Serves JSON data containing information about a printer."""
 
 import json

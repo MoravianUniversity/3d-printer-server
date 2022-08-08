@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Starts and pauses video streaming on-demand.
 

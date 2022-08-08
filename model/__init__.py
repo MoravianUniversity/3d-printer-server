@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """Serves GCODE, JSON, and OBJ versions of the currently printing model."""
 
 import os.path
