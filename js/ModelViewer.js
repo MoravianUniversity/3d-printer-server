@@ -96,6 +96,15 @@ class ModelViewer {
         this.renderer.render(this.scene, this.camera);
     }
 
+    /** Clear the scene. */
+    clear() {
+        this.layers = []; // core -> z value -> LineSegments2 object (temporarily an array of point values)
+        this.current_printing_z = 10000;
+        clearObject(this.scene);
+        this.group = new THREE.Group();
+        this.scene.add(this.group);
+    }
+
     /**
      * Set the current data for the display. The data is an object with a single key
      * of "layers" which is an array with one object for each core. Each of those
@@ -103,8 +112,7 @@ class ModelViewer {
      * of arrays of 2-element array of floats).
      */
     set_data(data) {
-        this.layers = []; // core -> z value -> LineSegments2 object (temporarily an array of point values)
-        this.current_printing_z = 10000;
+        this.clear();
 
         // Get Position Data
         let min_z = 10000, max_z = -10000;
@@ -130,11 +138,6 @@ class ModelViewer {
                 }
             }
         }
-
-        // Reset the scene
-        clearObject(this.scene);
-        this.group = new THREE.Group();
-        this.scene.add(this.group);
 
         // Create all of the geometries
         for (const core in this.layers) {
