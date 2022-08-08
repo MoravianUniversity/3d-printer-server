@@ -119,7 +119,7 @@ class VideoHandler(VideoStaticFileHandler):  # pylint: disable=abstract-method
         if name not in streams:
             # Streaming not currently running, start it
             printer = self.get_printer(name)
-            if not printer.support_video: raise HTTPError(400)
+            if not printer.supports_video: raise HTTPError(400)
             streams[name] = [None, time()]
             proc = await start_streaming(printer, self.root)
             streams[name] = [proc, time()]
