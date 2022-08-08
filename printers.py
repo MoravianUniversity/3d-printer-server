@@ -1,6 +1,5 @@
 import os.path
-from abc import abstractmethod
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import cache, cached_property
 
 import requests
@@ -225,17 +224,21 @@ class Ultimaker(Printer):
 
     @cached_property
     def __job(self):
-        # Both types of jobs (current and historical) have:
-        #   name, source, uuid, reprint_original_uuid, result
-        #   datetime_started, datetime_finished, datetime_cleaned, time_elapsed, time_total
-        # A current job also has:
-        #   progress     (filled in with 1.0 on a historical job)
-        #   pause_source (filled in with PrintJobPauseSources.UNKNOWN on a historical job)
-        #   state        (filled in with PrintJobState.NO_JOB on a historical job)
-        #   source_user, source_application  (not filled in for historical jobs)
-        #   (can also manually access gcode and container which are not available for historical jobs)
-        # A historical job also has:
-        #   time_estimated  (not filled in for current jobs)
+        """
+        Obtains either the current job or the most recent historical job.
+
+        Both types of jobs (current and historical) have:
+          name, source, uuid, reprint_original_uuid, result
+          datetime_started, datetime_finished, datetime_cleaned, time_elapsed, time_total
+        A current job also has:
+          progress     (filled in with 1.0 on a historical job)
+          pause_source (filled in with PrintJobPauseSources.UNKNOWN on a historical job)
+          state        (filled in with PrintJobState.NO_JOB on a historical job)
+          source_user, source_application  (not filled in for historical jobs)
+          (can also manually access gcode and container which are not available for historical jobs)
+        A historical job also has:
+          time_estimated  (not filled in for current jobs)
+        """
         try:
             return self.ultimaker.print_job.dict
         except (KeyError, ValueError):  # when there is no current job return most recent job
@@ -309,7 +312,7 @@ class Octopi(Printer):
         return self.__job["progress"]["printTimeLeft"]
 
     @property
-    def job_started(self): return TODO
+    def job_started(self): return datetime.now()  # - timedelta(seconds = self.__job["progress"]["printTime"])
     # maybe:
     #   datetime.now() - timedelta(seconds = self.__job["progress"]["printTime"])   but doesn't include pauses...
     #   datetime.fromtimestamp(self.__job_file["prints"]["last"]["date"])           may not include current print...
@@ -321,7 +324,21 @@ class Octopi(Printer):
     def __settings(self): return self.get("settings")
 
     @cached_property
-    def __job(self): return self.get("job")
+    def __job(self):
+        job = self.get("job")
+        if job["state"] == "Operational":  # TODO
+            pass
+#{
+# 'job': {
+#   'estimatedPrintTime': None,
+#   'filament': {'length': None, 'volume': None},
+#   'file': {'date': None, 'name': None, 'origin': None, 'path': None, 'size': None},
+#   'lastPrintTime': None, 'user': None
+# },
+# 'progress': {'completion': None, 'filepos': None, 'printTime': None, 'printTimeLeft': None, 'printTimeOrigin': None},
+# 'state': 'Operational'
+#}
+        return job
 
     @cached_property
     def __job_file(self):
@@ -329,8 +346,11 @@ class Octopi(Printer):
         return self.get(f"files/{file['origin']}/{file['path']}") # full info
 
     def fetch(self, url):
-        return requests.get(
+        data = requests.get(
             url, headers={"X-Api-Key":self.apikey})
+        if "error" in data:
+            raise ValueError(data["error"])
+        return data
 
     def get(self, cmd):
         return self.fetch(f'http://{self.hostname}/api/{cmd}').json()
