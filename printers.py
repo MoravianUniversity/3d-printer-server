@@ -25,17 +25,20 @@ def get_printer_classes_by_type():
 
 class PrinterHandlerMixin:
     def get_printer(self, name):
-        # Get the configuration for the printer
-        config = self.settings['config']
-        if name not in config: raise HTTPError(404)
-        config = config[name]
-        if 'type' not in config: raise HTTPError(404)
+        return get_printer(name, self.settings['config'])
 
-        # Get the class to use for the printer
-        cls = get_printer_classes_by_type().get(config['type'], Printer)
 
-        # Create the printer object
-        return cls(config)
+def get_printer(name, config):
+    # Get the configuration for the printer
+    if name not in config: raise HTTPError(404)
+    config = config[name]
+    if 'type' not in config: raise HTTPError(404)
+
+    # Get the class to use for the printer
+    cls = get_printer_classes_by_type().get(config['type'], Printer)
+
+    # Create the printer object
+    return cls(config)
 
 
 def file_mod_datetime(path):

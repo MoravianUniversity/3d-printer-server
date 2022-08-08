@@ -34,7 +34,7 @@ async def main():
         (r"/(model|video)/(.*)\.html", TemplateHandler),
         (r"/", RedirectHandler, {"url": "/dashboard"}),
         (r"/(.*)", StaticFileHandler, {"path":".", "default_filename":"index.html"}),
-    ], debug=True, config=config)
+    ], debug=True, autoreload=False, config=config)
     
     # Start
     app.listen(8888)
