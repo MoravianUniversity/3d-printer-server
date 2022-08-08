@@ -125,16 +125,12 @@ class Printer:
 
     def is_up_to_date(self, path):
         """
-        Checks if the path is up-to-date. A file is up-to-date if:
-          - printer is not printing (whatever data we have is fine)
-          - path exists and has a timestamp after the printer start most recent
-            print job
+        Checks if the path is up-to-date. A file is up-to-date if the path
+        exists and has a timestamp after the printer start most recent print
+        job.
         """
-        return (
-            # TODO: self.status not in ('printing', 'paused') or  # not printing anything
-            os.path.isfile(path) and (
-                file_mod_datetime(path) > self.job_started))  # up-to-date
-
+        return os.path.isfile(path) and (
+                file_mod_datetime(path) > self.job_started)
 
     @property
     def supports_job(self):
@@ -158,7 +154,6 @@ class Printer:
         Returns the time as a datetime when the current print job started.
         """
         raise NotImplementedError()
-
 
 
 class Ultimaker(Printer):
@@ -262,8 +257,6 @@ class Ultimaker(Printer):
 
 
 class Octopi(Printer):
-    # TODO: none of this is tested at all
-
     TYPE = 'octopi'
 
     def __init__(self, config):
