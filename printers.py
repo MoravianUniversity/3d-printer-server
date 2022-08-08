@@ -204,7 +204,7 @@ class Ultimaker(Printer):
     def video_type(self): return self.config.get('video_type', "MJPEG")
 
     @property
-    def suppoorts_link(self): return True
+    def supports_link(self): return True
 
     @property
     def link(self):
