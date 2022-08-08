@@ -7,7 +7,7 @@ import os
 import asyncio
 from configparser import ConfigParser
 
-from tornado.web import Application, StaticFileHandler, RequestHandler
+from tornado.web import Application, StaticFileHandler, RequestHandler, RedirectHandler
 
 from info import InfoHandler
 from model import ModelHandler
@@ -32,6 +32,7 @@ async def main():
         (r"/video/(.*)\.m3u8", VideoHandler),
         (r"/video/(.*\.ts)", VideoStaticFileHandler),
         (r"/(model|video)/(.*)\.html", TemplateHandler),
+        (r"/", RedirectHandler, {"url": "/dashboard"}),
         (r"/(.*)", StaticFileHandler, {"path":".", "default_filename":"index.html"}),
     ], debug=True, config=config)
     
