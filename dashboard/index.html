@@ -55,7 +55,7 @@
             overflow: hidden;
         }
         #display {
-            position: absolute; top: 50%; left: 50%; -ms-transform: translate(-50%, -50%); transform: translate(-50%, -50%);
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: black;
             z-index: 11;
             text-align: center;
@@ -63,6 +63,25 @@
             width: 100%; max-width: 650px; max-height: 490px; aspect-ratio: 4 / 3;
             padding: 5px;
         }
+        #display.ratio1-1 { aspect-ratio: 1 / 1; }
+        #display.ratio3-2 { aspect-ratio: 3 / 2; }
+        #display.ratio4-3 { aspect-ratio: 4 / 3; }
+        #display.ratio16-9 { aspect-ratio: 16 / 9; }
+        #display.rotate90 { transform: translate(-50%, -50%) rotate(90deg); }
+        #display.rotate180 { transform: translate(-50%, -50%) rotate(180deg); }
+        #display.rotate270 { transform: translate(-50%, -50%) rotate(270deg); }
+        #display.flipH { transform: translate(-50%, -50%) scaleX(-1); }
+        #display.flipH.rotate90 { transform: translate(-50%, -50%) scaleX(-1) rotate(90deg); }
+        #display.flipH.rotate180 { transform: translate(-50%, -50%) scaleX(-1) rotate(180deg); }
+        #display.flipH.rotate270 { transform: translate(-50%, -50%) scaleX(-1) rotate(270deg); }
+        #display.flipV { transform: translate(-50%, -50%) scaleY(-1); }
+        #display.flipV.rotate90 { transform: translate(-50%, -50%) scaleY(-1) rotate(90deg); }
+        #display.flipV.rotate180 { transform: translate(-50%, -50%) scaleY(-1) rotate(180deg); }
+        #display.flipV.rotate270 { transform: translate(-50%, -50%) scaleY(-1) rotate(270deg); }
+        #display.flipH.flipV { transform: translate(-50%, -50%) scale(-1, -1); }
+        #display.flipH.flipV.rotate90 { transform: translate(-50%, -50%) scale(-1, -1) rotate(90deg); }
+        #display.flipH.flipV.rotate180 { transform: translate(-50%, -50%) scale(-1, -1) rotate(180deg); }
+        #display.flipH.flipV.rotate270 { transform: translate(-50%, -50%) scale(-1, -1) rotate(270deg); }
         #display iframe, #display img { width: 100%; height: 100%; border: 0; color: red; }
         table { border-collapse: collapse; }
         table td { border-bottom: 1px solid black; padding: 0.2em 1em; }
@@ -70,21 +89,26 @@
     </style>
 
     <script>
-        function display(elem_type, url) {
+        function display(elem_type, url, classNames) {
             close_display();
             let display = document.getElementById('display');
             let elem = document.createElement(elem_type);
             elem.src = url;
             elem.id = 'view';
+            display.className = classNames.join(' ').replace(/\b([\d.]+):([\d.]+)\b/, 'ratio$1-$2')
             display.appendChild(elem);
             document.getElementById('container').style.display = 'block';
+            return display;
         }
         function close_display() {
             document.getElementById('container').style.display = 'none';
             document.getElementById('display').replaceChildren();
+            display.className = '';
+            display.style.aspectRatio = '';
+            display.style.transform = '';
         }
-        function show_camera(printer) { display(printer.vid_type, printer.vid_url); }
-        function show_model(printer) { display('iframe', `/model/${printer.id}.html`); }
+        function show_camera(printer) { display(printer.vid_type, printer.vid_url, ['camera'].concat(printer.vid_settings)); }
+        function show_model(printer) { display('iframe', `/model/${printer.id}.html`, ['model']); }
 
         function create_button(clazz) {
             elem = document.createElement('img');
@@ -118,6 +142,7 @@
                         const inline = data.video.type === 'MJPEG'; 
                         printer.vid_type = inline ? 'img' : 'iframe';
                         printer.vid_url = inline ? data.video.url : `/video/${name}.html`;
+                        printer.vid_settings = data.video.settings;
                         if (camera === null) {
                             camera = create_button('camera');
                             camera.addEventListener('click', () => show_camera(printer));

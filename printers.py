@@ -83,6 +83,18 @@ class Printer:
     @property
     def video_type(self): return self.config.get('video_type', 'unknown')
 
+    @property
+    def video_settings(self):
+        """
+        A list of settings for the video that can include any of:
+            'flipH' 'flipV' 'rotate90' 'rotate180' 'rotate270'
+        Along with 0 or 1 aspect ratio:
+            '16:9' '4:3' '3:2' '1:1'
+        By default this returns the video_settings config setting (defaulting
+        to an empty list).
+        """
+        return self.config.get('video_settings', '').split()
+
 
     @property
     def supports_link(self):
@@ -290,6 +302,16 @@ class Octopi(Printer):
     @property
     def video_type(self):
         return self.config.get('video_type', 'MJPEG')  # defaults to MJPEG, but could be HLS...
+
+    @property
+    def video_settings(self):
+        if 'video_settings' in self.config: return self.config['video_settings'].split()
+        webcam_settings = self.__settings["webcam"]
+        settings = [setting
+                    for setting in ('flipH', 'flipV', 'rotate90', 'rotate180', 'rotate270')
+                    if webcam_settings.get(setting, False)]
+        if 'streamRatio' in webcam_settings: settings.append(webcam_settings['streamRatio'])
+        return settings
 
     @property
     def supports_link(self): return True

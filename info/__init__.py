@@ -45,6 +45,7 @@ class InfoHandler(RequestHandler, PrinterHandlerMixin):  # pylint: disable=abstr
             info["video"] = {
                 "url": printer.video_url,
                 "type": printer.video_type,
+                "settings": printer.video_settings,
             }
         info["link"] = printer.link if printer.supports_link else None
         info["supports_model"] = printer.supports_gcode
