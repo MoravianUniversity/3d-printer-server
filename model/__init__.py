@@ -38,7 +38,7 @@ class ModelHandler(StaticFileHandler, PrinterHandlerMixin):  # pylint: disable=a
             self.absolute_path = gcode_path
         else:
             # Update the output file
-            self.absolute_path = await loop.run_in_executor(
+            self.absolute_path, name_ext = await loop.run_in_executor(
                 None, self.update_output,
                 printer, updated, gcode_path, name, ext)
 
@@ -72,14 +72,14 @@ class ModelHandler(StaticFileHandler, PrinterHandlerMixin):  # pylint: disable=a
 
         # Check if an update is needed
         if not updated and printer.is_up_to_date(output_path):
-            return output_path
+            return output_path, name_ext
 
         # Convert and save the file
         with open(gcode_path) as gcode, open(output_path, "w") as f:
             func(gcode, out=f,
                  ignore_infill=not infill, ignore_support=not support)
 
-        return output_path
+        return output_path, name_ext
 
 
     def update_gcode(self, printer, path):
