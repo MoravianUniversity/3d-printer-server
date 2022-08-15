@@ -7,7 +7,7 @@
     <link rel="icon" href="/favicon.ico">
     <link rel="icon" href="/favicon.png" type="image/png">
     <link rel="apple-touch-icon" href="/favicon.png">
-    <style> body { padding: 0; margin: 0; } </style>
+    <style> body { padding: 0; margin: 0; overflow: hidden; } video { max-width: 100%; max-height: 100%; } </style>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script>
         // simple function to play an HLS video URL in a <video> element
