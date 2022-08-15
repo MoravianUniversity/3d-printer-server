@@ -27,7 +27,7 @@ from tornado.ioloop import PeriodicCallback
 from printers import PrinterHandlerMixin
 
 try:
-    import aiofiles
+    import aiofiles.os
     have_aiofiles = True
 except ImportError:
     have_aiofiles = False
@@ -49,7 +49,7 @@ async def start_streaming(printer, path):
     """
 
     # Ensure path exists
-    if have_aiofiles: await os.makedirs(path, exist_ok=True)
+    if have_aiofiles: await aiofiles.os.makedirs(path, exist_ok=True)
     else: os.makedirs(path, exist_ok=True)
 
     # Get the video's files
@@ -58,7 +58,7 @@ async def start_streaming(printer, path):
 
     # Remove evidence of previous streaming
     try:
-        if have_aiofiles: await os.remove(m3u8_full)
+        if have_aiofiles: await aiofiles.os.remove(m3u8_full)
         else: os.remove(m3u8_full)
     except OSError as ex:
         if ex.errno != errno.ENOENT: raise
@@ -90,7 +90,8 @@ def terminate_video_streams(stale_secs=None):
     for name, info in streams.copy().items():
         if stale is None or info[1] < stale:
             print("Stopping stream for "+name+"...")
-            info[0].terminate()
+            if info[0] is not None:
+                info[0].terminate()
             del streams[name]
 
 
