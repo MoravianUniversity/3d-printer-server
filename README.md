@@ -43,6 +43,7 @@ cat >>~/.config/lxsession/LXDE-pi/autostart <<EOF
 @xset -dpms
 @xset s noblank
 @unclutter -root
+@sleep 30  # time for network to become connected
 @chromium --kiosk --app=http://localhost:8888/display
 EOF
 nano ~/.config/lxsession/LXDE-pi/autostart
