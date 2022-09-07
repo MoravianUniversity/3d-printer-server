@@ -1,7 +1,0 @@
-#!/bin/bash
-DIR="$(dirname "${BASH_SOURCE[0]}")"
-if which realpath >/dev/null 2>&1; then DIR="$(realpath "$DIR")"; fi
-cd $DIR/..
-. bin/activate
-cd 3d-printer-server
-python server.py

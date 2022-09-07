@@ -13,14 +13,16 @@ On a fresh Raspbian installation, ssh into the machine and do the following to f
 ```shell
 sudo apt-get install python3 ffmpeg  # Raspbian
 #brew install python3 ffmpeg  # macOS
-python3 -m venv ~/3d-print-server
-cd ~/3d-print-server
-. bin/activate
-pip install tornado requests aiofiles trimesh
 git clone https://github.com/MoravianCollege/3d-printer-server.git
 cd 3d-printer-server
+python3 -m venv .
+. bin/activate
+pip install tornado requests aiofiles trimesh
 git submodule init
 git submodule update
+./install-service --port 8888  # change port as needed, requires sudo
+```
+
 sudo cp 3d-print-server.service /etc/systemd/system  # Raspbian
 sudo systemctl enable 3d-print-server  # Raspbian
 sudo systemctl start 3d-print-server  # Raspbian
@@ -44,7 +46,7 @@ cat >>~/.config/lxsession/LXDE-pi/autostart <<EOF
 @xset s noblank
 @unclutter -root
 @sleep 30  # time for network to become connected
-@chromium --kiosk --app=http://localhost:8888/display
+@chromium --kiosk --app=http://localhost:8888/display  # make sure to update this as appropriate
 EOF
 nano ~/.config/lxsession/LXDE-pi/autostart
         Comment out @xscreensaver -no-splash by placing a # in front

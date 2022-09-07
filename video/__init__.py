@@ -97,7 +97,10 @@ def terminate_video_streams(stale_secs=None):
 
 class VideoStaticFileHandler(StaticFileHandler, PrinterHandlerMixin):  # pylint: disable=abstract-method
     def initialize(self, **kwargs):
-        super().initialize(self.get_config('tmp'), **kwargs)
+        tmp = self.get_config('tmp')
+        if not os.path.isdir(tmp):
+            tmp = os.path.dirname(__file__)
+        super().initialize(tmp, **kwargs)
 
     def get_config(self, name):
         val = self.settings['config'].get('VIDEO', name, fallback=None)

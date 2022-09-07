@@ -1,0 +1,60 @@
+#!/bin/bash
+PORT=8888
+PYTHON="$(which python3)"
+DIR="$(dirname "${BASH_SOURCE[0]}")"
+if which realpath >/dev/null 2>&1; then DIR="$(realpath "$DIR")"; fi
+
+echo "Adding service to run:"
+echo "'$PYTHON' '$DIR/server.py' --port $PORT >>'$DIR/output.log' 2>>'$DIR/error.log'"
+
+if [ "$(uname -s)" == "Darwin" ]; then
+    echo "using launchd (macOS)"
+    SERVICE="/Library/LaunchDaemons/3d-print-server.plist"
+    sudo tee "$SERVICE" >/dev/null <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>edu.moravian.cslab.3d-printer-server</string>
+    <key>ServiceDescription</key>
+    <string>3D Printer Server</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$PYTHON</string>
+        <string>$DIR/server.py</string>
+        <string>--port</string>
+        <string>$PORT</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>$DIR</string>
+    <key>StandardOutPath</key>
+    <string>$DIR/output.log</string>
+    <key>StandardErrorPath</key>
+    <string>$DIR/error.log</string>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+EOF
+    sudo launchctl bootstrap system "$SERVICE"
+else  # assume Linux with systemd
+    echo "using systemd (Linux)"
+    SERVICE="/etc/systemd/system/3d-print-server.service"
+    sudo tee "$SERVICE" >/dev/null <<EOF
+[Unit]
+Description=3D Printer Server
+Requires=network.target
+
+[Service]
+Type=exec
+WorkingDirectory=$DIR
+StandardOutput=append:$DIR/output.log
+StandardError=append:$DIR/error.log
+ExecStart="$PYTHON" "$DIR/server.py" --port $PORT
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl enable --now 3d-print-server.service
+fi

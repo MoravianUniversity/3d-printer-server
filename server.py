@@ -8,10 +8,13 @@ import asyncio
 from configparser import ConfigParser
 
 from tornado.web import Application, StaticFileHandler, RequestHandler, RedirectHandler
+from tornado.options import define, options
 
 from info import InfoHandler
 from model import ModelHandler
 from video import VideoHandler, VideoStaticFileHandler, terminate_video_streams
+
+define("port", default=8888, help="Port to listen on")
 
 
 class TemplateHandler(RequestHandler): # pylint: disable=abstract-method
@@ -25,7 +28,7 @@ async def main():
     config = ConfigParser()
     directory = os.path.dirname(os.path.abspath(__file__))
     config.read(os.path.join(directory, 'config.ini'))
-
+    
     app = Application([
         (r"/info/(.*)\.json", InfoHandler),
         (r"/model/(.*\.(?:gcode|json|obj))", ModelHandler, {"path":"model"}),
@@ -37,7 +40,7 @@ async def main():
     ], debug=True, autoreload=False, config=config)
     
     # Start
-    app.listen(8888)
+    app.listen(options.port)
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
