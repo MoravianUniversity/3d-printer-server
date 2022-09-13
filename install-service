@@ -1,8 +1,12 @@
 #!/bin/bash
 PORT=8888
+if [ $# -gt 0 ]; then PORT=$1; fi
 PYTHON="$(which python3)"
-DIR="$(dirname "${BASH_SOURCE[0]}")"
-if which realpath >/dev/null 2>&1; then DIR="$(realpath "$DIR")"; fi
+if which realpath >/dev/null 2>&1; then
+    DIR="$(realpath -- "$(dirname -- "${BASH_SOURCE[0]}")")"
+else
+    DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+fi
 
 echo "Adding service to run:"
 echo "'$PYTHON' '$DIR/server.py' --port $PORT >>'$DIR/output.log' 2>>'$DIR/error.log'"
@@ -23,8 +27,7 @@ if [ "$(uname -s)" == "Darwin" ]; then
     <array>
         <string>$PYTHON</string>
         <string>$DIR/server.py</string>
-        <string>--port</string>
-        <string>$PORT</string>
+        <string>--port=$PORT</string>
     </array>
     <key>WorkingDirectory</key>
     <string>$DIR</string>
@@ -51,7 +54,7 @@ Type=exec
 WorkingDirectory=$DIR
 StandardOutput=append:$DIR/output.log
 StandardError=append:$DIR/error.log
-ExecStart="$PYTHON" "$DIR/server.py" --port $PORT
+ExecStart="$PYTHON" "$DIR/server.py" --port=$PORT
 
 [Install]
 WantedBy=multi-user.target

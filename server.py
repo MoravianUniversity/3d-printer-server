@@ -8,7 +8,7 @@ import asyncio
 from configparser import ConfigParser
 
 from tornado.web import Application, StaticFileHandler, RequestHandler, RedirectHandler
-from tornado.options import define, options
+from tornado.options import define, options, parse_command_line
 
 from info import InfoHandler
 from model import ModelHandler
@@ -40,10 +40,12 @@ async def main():
     ], debug=True, autoreload=False, config=config)
     
     # Start
+    print("Listening on port {options.port}...")
     app.listen(options.port)
     await asyncio.Event().wait()
 
 if __name__ == "__main__":
+    parse_command_line()
     try:
         asyncio.run(main())
     finally:
