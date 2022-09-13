@@ -40,7 +40,7 @@ async def main():
     ], debug=True, autoreload=False, config=config)
     
     # Start
-    print("Listening on port {options.port}...")
+    print(f"Listening on port {options.port}...")
     app.listen(options.port)
     await asyncio.Event().wait()
 
