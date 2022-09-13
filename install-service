@@ -31,6 +31,11 @@ if [ "$(uname -s)" == "Darwin" ]; then
     </array>
     <key>WorkingDirectory</key>
     <string>$DIR</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
     <key>StandardOutPath</key>
     <string>$DIR/output.log</string>
     <key>StandardErrorPath</key>
