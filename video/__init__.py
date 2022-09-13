@@ -19,6 +19,7 @@ import os
 import errno
 import asyncio
 import subprocess
+import shutil
 from time import time
 
 from tornado.web import StaticFileHandler, HTTPError
@@ -67,8 +68,9 @@ async def start_streaming(printer, path):
     # TODO: base conversions needed off of video type
     # e.g. could be HLS already and RTSP may not need transcoding
     # FFMPEG: https://www.ffmpeg.org/ffmpeg-formats.html#hls-2
+    ffmpeg = shutil.which('ffmpeg') or 'ffmpeg'
     proc = subprocess.Popen((
-        'ffmpeg', '-hide_banner', '-nostats', '-loglevel', 'error',
+        ffmpeg, '-hide_banner', '-nostats', '-loglevel', 'error',
         '-i', printer.video_url,
         '-c:v', 'h264', '-profile:v', 'high', '-level', '4.1',
         '-an', '-flags', '+cgop', '-g', '30', '-pix_fmt', 'yuv420p',
