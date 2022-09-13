@@ -6,3 +6,8 @@ __pycache__/
 *.obj
 *.m3u8
 *.ts
+bin/
+lib/
+pyvenv.cfg
+*.log
+
