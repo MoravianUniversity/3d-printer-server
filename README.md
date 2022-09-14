@@ -20,14 +20,7 @@ python3 -m venv .
 pip install tornado requests aiofiles trimesh
 git submodule init
 git submodule update
-./install-service --port 8888  # change port as needed, requires sudo
-```
-
-sudo cp 3d-print-server.service /etc/systemd/system  # Raspbian
-sudo systemctl enable 3d-print-server  # Raspbian
-sudo systemctl start 3d-print-server  # Raspbian
-#sudo cp 3d-print-server.plist /Library/LaunchDaemons  # macOS
-#launchctl load /Library/LaunchDaemons/3d-print-server.plist  # macOS
+./install-service --port 80  # change port as needed, requires sudo
 ```
 
 To setup the kiosk display on Raspbian:
