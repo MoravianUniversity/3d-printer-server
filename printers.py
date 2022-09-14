@@ -275,14 +275,14 @@ class Octopi(Printer):
             status = self.__status
         except (KeyError, ValueError):
             return 'unknown'  # unable to connect to printer
-        if status["paused"] or status["pausing"]:
+        if status.get("paused") or status.get("pausing"):
             return 'paused'
-        elif status["printing"] or status["resuming"] or \
-                status["finishing"] or status["cancelling"]:
+        elif status.get("printing") or status.get("resuming") or \
+                status.get("finishing") or status.get("cancelling"):
             return 'printing'
-        elif status["closedOrError"] or status["error"]:
+        elif status.get("closedOrError") or status.get("error"):
             return 'error'
-        elif status["operational"] or status["ready"]:
+        elif status.get("operational") or status.get("ready"):
             return 'ready'
         else:
             return 'unknown'
@@ -291,7 +291,7 @@ class Octopi(Printer):
     def supports_video(self):
         if 'video' in self.config: return True
         settings = self.__settings
-        return "webcam" in settings and "streamUrl" in settings["webcam"]
+        return "webcam" in settings and settings["webcam"]["webcamEnabled"] and settings["webcam"].get("streamUrl")
 
     @property
     def video_url(self):
@@ -330,7 +330,7 @@ class Octopi(Printer):
         return self.fetch(job_file["refs"]["download"], json=False).text
 
     @property
-    def supports_job(self): return True
+    def supports_job(self): return self.__job is not None
 
     @property
     def job_remaining_time(self):
@@ -344,14 +344,23 @@ class Octopi(Printer):
         return datetime.now() - timedelta(seconds=job["progress"]["printTime"])
 
     @cached_property
-    def __status(self): return self.get("printer")["state"]["flags"]
+    def __status(self):
+        try:
+            printer = self.get("printer")
+        except ValueError as ex:
+            if ex.args[0] == "Printer is not operational":
+                return {"error":True}
+            raise
+        return printer["state"]["flags"]
 
     @cached_property
     def __settings(self): return self.get("settings")
 
     @cached_property
     def __job(self):
-        job = self.get("job")
+        if self.status in ("error", "unknown"): return None
+        try: job = self.get("job")
+        except ValueError: return None
         if job["state"] == "Operational":  # TODO
             file = self.__find_most_recent_file(self.__files["files"])
             if file is None: return None

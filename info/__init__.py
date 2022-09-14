@@ -1,6 +1,7 @@
 """Serves JSON data containing information about a printer."""
 
 import json
+import sys
 from datetime import timedelta
 
 from tornado.web import RequestHandler
@@ -33,20 +34,23 @@ def generate_info(name, config):
     This blocks, should be used with an executor.
     """
     printer = get_printer(name, config)
-    info = {"name": printer.name}
-    info["status"] = printer.status
-    if printer.supports_video:
-        info["video"] = {
-            "url": printer.video_url,
-            "type": printer.video_type,
-            "settings": printer.video_settings,
-        }
-    info["link"] = printer.link if printer.supports_link else None
-    info["supports_model"] = printer.supports_gcode
-    if printer.supports_job:
-        remaining = printer.job_remaining_time
-        if isinstance(remaining, timedelta):
-            remaining = remaining.total_seconds()
-        started = printer.job_started.strftime(r"%Y-%m-%dT%H:%M:%SZ")
-        info["job"] = {"remaining": remaining, "started": started}
+    info = {"name": printer.name, "status": "unknown", "link": None, "supports_model": False}
+    try:
+        info["status"] = printer.status
+        if printer.supports_video:
+            info["video"] = {
+                "url": printer.video_url,
+                "type": printer.video_type,
+                "settings": printer.video_settings,
+            }
+        if printer.supports_link: info["link"] = printer.link
+        info["supports_model"] = printer.supports_gcode
+        if printer.supports_job:
+            remaining = printer.job_remaining_time
+            if isinstance(remaining, timedelta):
+                remaining = remaining.total_seconds()
+            started = printer.job_started.strftime(r"%Y-%m-%dT%H:%M:%SZ")
+            info["job"] = {"remaining": remaining, "started": started}
+    except (ValueError, TypeError, KeyError) as ex: # includes JSONDecodeError
+        print(f"Error acquiring printer info: {ex}", file=sys.stderr)
     return json.dumps(info)
