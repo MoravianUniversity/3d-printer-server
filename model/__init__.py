@@ -1,7 +1,6 @@
 """Serves GCODE, JSON, and OBJ versions of the currently printing model."""
 
 import os.path
-from distutils.util import strtobool
 
 from tornado.web import StaticFileHandler, HTTPError
 from async_util import run_async
@@ -10,6 +9,22 @@ from printers import PrinterHandlerMixin, get_printer
 from model.gcode_parser import gcode_to_json, gcode_to_obj
 
 CWD = os.path.dirname(os.path.abspath(__file__))
+
+
+_BOOL_VALS = {
+    'y': True, 'yes': True,
+    'n': False, 'no': False,
+    't': True, 'true': True,
+    'f': False, 'false': False,
+    'on': True, 'off': False,
+    '1': True, '0': False,
+}
+
+def strtobool(value):
+    try:
+        return _BOOL_VALS[str(value).lower()]
+    except KeyError:
+        return ValueError(f'"{value}" is not a valid bool value')
 
 
 class ModelHandler(StaticFileHandler, PrinterHandlerMixin):  # pylint: disable=abstract-method
