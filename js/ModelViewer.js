@@ -92,7 +92,7 @@ class ModelViewer {
         const timer = performance.now();
         this.scene.rotation.x = timer*0.0005;
         this.scene.rotation.y = timer*0.0002;
-	    this.scene.rotation.z = timer*0.0002;
+	   // this.scene.rotation.z = timer*0.0002;
         this.stats.update();
         this.renderer.render(this.scene, this.camera);
     }

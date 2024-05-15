@@ -4,34 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="refresh" content="10800">
 <title>3D Printing Dashboard</title>
-<style>
-    body { margin: 0; padding: 0; overflow: hidden; text-align: center; font-size: 2em; }
-    #information { position: absolute; bottom: 0; left: 0; right: 0; border-top: 2px solid black; font-size: 1.6em; }
-    printer { position: absolute; width: calc(50% - 2px); top: 0; bottom: 1.9em; }
-    h1 { font-size: 1.1em; font-weight: normal; }
-    h2 { font-size: 1.3em; }
-    h1.name, h2.status { margin: 0.1em; }
-    printer div, printer canvas { visibility: hidden; }
-    printer.printing div, printer.printing canvas, printer .extruders, printer .extruders div { visibility: initial; }
-    printer.off .extruders, printer.off .extruders div { visibility: hidden; }
-    .progress { position: relative; left: 2px; width: 100%; height: calc(1.2em + 4px); background: #303030; color: white; font-size: 1.25em; }
-    .progress div { overflow: visible; position: absolute; }
-    .progress .bar { background: #008000; height: 1.2em; border: 2px solid black; border-left: 0; margin: 0 -2px; }
-    .progress .completed { left: 0; top: 2px; text-align: left; padding-left: 5px; }
-    .progress .percent { left: 0; right: 0; top: 2px; text-align: center; }
-    .progress .remaining { right: 0; top: 2px; text-align: right; padding-right: 5px; }
-    .extruders { position: absolute; bottom: 0; height: 1.2em; width: 100%; border-top: 2px solid black; }
-    .extruder0, .extruder1 { width: 50%; position: absolute; }
-    .extruder0 { left: 0; }
-    .extruder1 { left: 50%; }
-    canvas.display { position: absolute; width: 100%; height: 2px; bottom: 1.2em; }
-
-    /* This puts the printers each on their own side */
-    printer:first-of-type { left: 0; border-right: 2px solid black; }
-    printer:last-of-type { right: 0; border-left: 2px solid black; }
-    printer:first-of-type canvas.display { left: 0; }
-    printer:last-of-type canvas.display { right: 0; }
-</style>
+<link rel="stylesheet" type="text/css" href="dashboard.css">
 <script>
 window.onerror = function(message, url, lineNumber) {
     if (message.startsWith('ResizeObserver') || lineNumber === 0 && url === "") { return false; }
