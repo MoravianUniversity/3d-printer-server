@@ -3,25 +3,28 @@ body {
     padding: 0;
     overflow: hidden;
     text-align: center;
-    font-size: 2em;
+    font-size: 2rem;
 }
 
 #information {
-    position: absolute;
+    position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     border-top: 2px solid black;
-    font-size: 1.6em;
-    border-radius: 10px;
+    font-size: 2.8rem;
+    padding: 5px;
+    background-color: #e8f0fe;
 }
 
 printer {
     position: absolute;
     width: calc(50% - 2px);
     top: 0;
-    bottom: 1.9em;
+    bottom: 0em;
+    bottom: 2.5em; /* Adjust to accommodate the information div */
     padding: 20px;
+    box-sizing: border-box;
 }
 
 h1 {
@@ -36,7 +39,7 @@ h2 {
 h1.name {
     background-color: #e8f0fe;
     color: #333;
-    border-radius: 10px; /* Added rounded corners */
+    border-radius: 10px; 
 }
 
 h2.status {
@@ -61,10 +64,11 @@ printer.off .extruders, printer.off .extruders div {
     left: 2px;
     width: 100%;
     height: calc(1.2em + 4px);
-    background: #303030;
+    background: grey;
     color: white;
     font-size: 1.25em;
-    margin: 10px 0;
+    margin: 10px 0 20px;
+     
 }
 
 .progress div {
@@ -73,11 +77,13 @@ printer.off .extruders, printer.off .extruders div {
 }
 
 .progress .bar {
-    background: #008000;
+    background:lightblue;
     height: 1.2em;
-    border: 2px solid black;
+    border: 2px solid lightblue;
     border-left: 0;
     margin: 0 -2px;
+    
+
 }
 
 .progress .completed {
@@ -85,6 +91,7 @@ printer.off .extruders, printer.off .extruders div {
     top: 2px;
     text-align: left;
     padding-left: 5px;
+
 }
 
 .progress .percent {
@@ -103,17 +110,19 @@ printer.off .extruders, printer.off .extruders div {
 
 .extruders {
     position: absolute;
-    bottom: 0;
-    height: 1.2em;
-    width: 100%;
+    bottom: .5em;
+    height: .9em;
+    width: 95%;
     border-top: 2px solid black;
-    border-radius: 10px; /* Added rounded corners */
     margin-top: 10px;
+    display: flex; 
+    justify-content: center; 
 }
 
 .extruder0, .extruder1 {
-    width: 50%;
-    position: absolute;
+    display: absolute;
+    width: 45%;
+    margin: 0 2.5%;
 }
 
 .extruder0 {
@@ -125,9 +134,9 @@ printer.off .extruders, printer.off .extruders div {
 }
 
 canvas.display {
-    width: 300px; /* Set a fixed width */
-    height: 300px; /* Set a fixed height */
-    border-radius: 10px; /* Rounded corners */
+    
+    border-radius: 10px;
+    flex-grow: 1;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); /* Added box shadow for better visibility */
     margin: 0 auto; /* Center the canvas */
     display: block; /* Ensure it's treated as a block-level element */
@@ -136,12 +145,12 @@ canvas.display {
 /* This puts the printers each on their own side */
 printer:first-of-type {
     left: 0;
-    border-right: 2px solid black;
+    
 }
 
 printer:last-of-type {
     right: 0;
-    border-left: 2px solid black;
+  
 }
 
 printer:first-of-type canvas.display {

@@ -65,8 +65,22 @@ class ModelViewer {
      * need to be called manually.
      */
     resized() {
+        //set a maximum width and height
+        const maxWidth = 820;
+        const maxHeight = 820;  
+
+
         // TODO: changes things causing the middle of the object to not be in the middle anymore
         let [w, h] = [this.renderer.domElement.width, this.renderer.domElement.height];
+        // check if the width and height are too big and adjust
+        if (w > maxWidth) {
+            h = h * maxWidth / w;
+            w = maxWidth;
+        }
+        if (h > maxHeight) {
+            w = w * maxHeight / h;
+            h = maxHeight;
+        }
         this.camera.aspect = w / h;
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(w / window.devicePixelRatio, h / window.devicePixelRatio);
