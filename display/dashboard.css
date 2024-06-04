@@ -84,7 +84,6 @@ printer.off .extruders, printer.off .extruders div {
     border: 2px solid lightblue;
     margin: 0 -2px;
     border-radius: 10px;
-    border-top-right-radius: 0%;
 }
 
 .progress .completed {
