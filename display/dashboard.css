@@ -71,9 +71,6 @@ printer.off .extruders, printer.off .extruders div {
     font-size: 1.25em;
     margin: 10px 0 15px;
     border-radius: 10px;
-    line-height: 1.3em;
-    
-
 }
 
 .progress div {
@@ -83,35 +80,27 @@ printer.off .extruders, printer.off .extruders div {
 
 .progress .bar {
     background:lightblue;
-    height: 1.2em;
+    height: calc(100% - 4px);
     border: 2px solid lightblue;
-    border-left: -2;
     margin: 0 -2px;
     border-radius: 10px;
-    /*remove border radius for the left side of the progress bar*/
     border-top-right-radius: 0%;
-    
-
 }
 
 .progress .completed {
     left: 0;
-    top: 2px;
     text-align: left;
     padding-left: 5px;
-
 }
 
 .progress .percent {
     left: 0;
     right: 0;
-    top: 2px;
     text-align: center;
 }
 
 .progress .remaining {
     right: 0;
-    top: 2px;
     text-align: right;
     padding-right: 5px;
 }
