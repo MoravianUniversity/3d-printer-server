@@ -1,4 +1,5 @@
 body {
+    cursor: none;
     margin: 0;
     padding: 0;
     overflow: hidden;
@@ -67,8 +68,9 @@ printer.off .extruders, printer.off .extruders div {
     background: grey;
     color: white;
     font-size: 1.25em;
-    margin: 10px 0 20px;
-     
+    margin: 10px 0 15px;
+    border-radius: 10px;
+
 }
 
 .progress div {
@@ -80,8 +82,11 @@ printer.off .extruders, printer.off .extruders div {
     background:lightblue;
     height: 1.2em;
     border: 2px solid lightblue;
-    border-left: 0;
+    border-left: -2;
     margin: 0 -2px;
+    border-radius: 10px;
+    /*remove border radius for the left side of the progress bar*/
+    border-top-right-radius: 0%;
     
 
 }
